@@ -1,0 +1,25 @@
+# Virtual Environment
+.venv/
+
+# Environment Variables
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# VS Code
+.vscode/
+
+# Firebase Service Account
+app/firebase/keys/
+
+# Logs
+*.log
+
+# Pytest
+.pytest_cache/
+
+# OS Files
+.DS_Store
+Thumbs.db
