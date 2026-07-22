@@ -1,19 +1,18 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str
-    VERSION: str
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    ADMIN_EMAIL: str
-    ADMIN_PASSWORD: str
+    PROJECT_NAME: str = "Kings Hostel Backend"
+    VERSION: str = "1.0.0"
 
-    SECRET_KEY: str
-    ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    ADMIN_EMAIL: str = "admin@kingshostel.com"
+    ADMIN_PASSWORD: str = "admin123"
 
-    class Config:
-        env_file = ".env"
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
 
 settings = Settings()
