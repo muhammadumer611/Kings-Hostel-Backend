@@ -53,59 +53,27 @@ class StudentService:
             }
 
         # ---------- Legacy Payload ----------
-        return {
-
-            "name": (
-                student_data.get("name")
-                or student_data.get("full_name")
-            ),
-
+        return {"name": (student_data.get("name")
+            or student_data.get("full_name")),
             "cnic": student_data.get("cnic"),
-
             "phone": student_data.get("phone"),
-
-            "email": student_data.get("email"),
-
-            "blood_group": student_data.get(
-                "blood_group"
-            ),
-
-            "guardian_name": (
-                student_data.get("guardian_name")
-                or student_data.get("father_name")
-            ),
-
-            "guardian_phone": student_data.get(
-                "guardian_phone"
-            ),
-
-            "guardian_cnic": student_data.get(
-                "guardian_cnic"
-            ),
-
+            "email":student_data.get("email"),
+            "blood_group": student_data.get("blood_group"),
+            "guardian_name": (student_data.get("guardian_name")
+                or student_data.get("father_name")),
+            "guardian_phone": student_data.get("guardian_phone"),
+            "guardian_cnic": student_data.get("guardian_cnic"),
             "block": student_data.get("block"),
-
             "room_type": student_data.get("room_type"),
-
-            "room_number": student_data.get(
-                "room_number"
-            ),
-
-            "bed_number": student_data.get(
-                "bed_number"
-            ),
-
-            "status": student_data.get(
-                "status",
-                "Active",
-            ),
+            "room_number": student_data.get("room_number"),
+            "bed_number": student_data.get("bed_number"),
+            "status": student_data.get("status","Active"),
         }
 
     def _serialize_student(
         self,
         student: dict,
     ) -> dict:
-
         """
         Convert database document into
         frontend response format.
@@ -119,142 +87,36 @@ class StudentService:
             join_date = created_at.strftime("%Y-%m-%d")
 
         return {
-
             "id": (
                 student.get("student_id")
                 or student.get("firebase_id")
             ),
-
-            "studentId": student.get(
-                "student_id",
-                "",
-            ),
-
-            "name": student.get(
-                "name",
-                "",
-            ),
-
-            "cnic": student.get(
-                "cnic",
-                "",
-            ),
-
-            "email": student.get(
-                "email",
-                "",
-            ),
-
-            "phone": student.get(
-                "phone",
-                "",
-            ),
-
-            "block": student.get(
-                "block",
-                "",
-            ),
-
-            "roomType": student.get(
-                "room_type",
-                "",
-            ),
-
-            "roomNumber": student.get(
-                "room_number",
-                "",
-            ),
-
-            "bedNumber": student.get(
-                "bed_number",
-                "",
-            ),
-
-            "guardianName": student.get(
-                "guardian_name",
-                "",
-            ),
-
-            "guardianPhone": student.get(
-                "guardian_phone",
-                "",
-            ),
-
-            "guardianCnic": student.get(
-                "guardian_cnic",
-                "",
-            ),
-
-            "bloodGroup": student.get(
-                "blood_group",
-                "",
-            ),
-
-            "status": student.get(
-                "status",
-                "Active",
-            ),
-
-            "course": student.get(
-                "course",
-                "",
-            ),
-
-            "year": student.get(
-                "year",
-                "",
-            ),
-
-            "monthlyFee": student.get(
-                "monthly_fee",
-                0,
-            ),
-
-            "securityDeposit": student.get(
-                "security_deposit",
-                0,
-            ),
-
-            "pendingFee": student.get(
-                "pending_fee",
-                0,
-            ),
-
-            "feeStatus": student.get(
-                "fee_status",
-                "Pending",
-            ),
-
-            "avatarUrl": student.get(
-                "avatar_url",
-                "",
-            ),
-
-            "cnicFrontUrl": student.get(
-                "cnic_front_url",
-                "",
-            ),
-
-            "cnicBackUrl": student.get(
-                "cnic_back_url",
-                "",
-            ),
-
-            "emergencyContact": student.get(
-                "emergency_contact",
-                "",
-            ),
-
-            "permanentAddress": student.get(
-                "address",
-                "",
-            ),
-
-            "city": student.get(
-                "city",
-                "",
-            ),
-
+            "studentId": student.get("student_id", ""),
+            "name": student.get("name", ""),
+            "cnic": student.get("cnic", ""),
+            "email": student.get("email", ""),
+            "phone": student.get("phone", ""),
+            "block": student.get("block", ""),
+            "roomType": student.get("room_type", ""),
+            "roomNumber": student.get("room_number", ""),
+            "bedNumber": student.get("bed_number", ""),
+            "guardianName": student.get("guardian_name", ""),
+            "guardianPhone": student.get("guardian_phone", ""),
+            "guardianCnic": student.get("guardian_cnic", ""),
+            "bloodGroup": student.get("blood_group", ""),
+            "status": student.get("status", "Active"),
+            "course": student.get("course", ""),
+            "year": student.get("year", ""),
+            "monthlyFee": student.get("monthly_fee", 0),
+            "securityDeposit": student.get("security_deposit", 0),
+            "pendingFee": student.get("pending_fee", 0),
+            "feeStatus": student.get("fee_status", "Pending"),
+            "avatarUrl": student.get("avatar_url", ""),
+            "cnicFrontUrl": student.get("cnic_front_url", ""),
+            "cnicBackUrl": student.get("cnic_back_url", ""),
+            "emergencyContact": student.get("emergency_contact", ""),
+            "permanentAddress": student.get("address", ""),
+            "city": student.get("city", ""),
             "joinDate": join_date,
         }
 
@@ -320,9 +182,7 @@ class StudentService:
             return APIResponse.success(
                 "Student added successfully.",
                 {
-                    "student_id": normalized_student[
-                        "student_id"
-                    ],
+                    "student_id": normalized_student["student_id"],
                     "firebase_id": firebase_id,
                 },
             )
@@ -357,9 +217,7 @@ class StudentService:
             return APIResponse.success(
                 "Students retrieved successfully.",
                 {
-                    "total_students": len(
-                        serialized_students
-                    ),
+                    "total_students": len(serialized_students),
                     "students": serialized_students,
                 },
             )
@@ -430,9 +288,11 @@ class StudentService:
 
         try:
 
-            if not self.repository.student_exists(
+            student = self.repository.get_student_by_id(
                 student_id
-            ):
+            )
+
+            if not student:
 
                 logger.warning(
                     "Student not found for update | "
@@ -443,27 +303,106 @@ class StudentService:
                     "Student not found."
                 )
 
-            normalized_student = (
-                self._normalize_student_data(
-                    student_data
+            update_data = {}
+
+            if "personal" in student_data:
+
+                personal = student_data["personal"]
+
+                if "name" in personal:
+                    update_data["name"] = personal["name"]
+
+                if "cnic" in personal:
+                    update_data["cnic"] = personal["cnic"]
+
+                if "phone" in personal:
+                    update_data["phone"] = personal["phone"]
+
+                if "email" in personal:
+                    update_data["email"] = personal["email"]
+
+                if "bloodGroup" in personal:
+                    update_data["blood_group"] = personal["bloodGroup"]
+
+            if "guardian" in student_data:
+
+                guardian = student_data["guardian"]
+
+                if "name" in guardian:
+                    update_data["guardian_name"] = guardian["name"]
+
+                if "phone" in guardian:
+                    update_data["guardian_phone"] = guardian["phone"]
+
+                if "cnic" in guardian:
+                    update_data["guardian_cnic"] = guardian["cnic"]
+
+            if "allocation" in student_data:
+
+                allocation = student_data["allocation"]
+
+                if "block" in allocation:
+                    update_data["block"] = allocation["block"]
+
+                if "roomType" in allocation:
+                    update_data["room_type"] = allocation["roomType"]
+
+                if "roomNumber" in allocation:
+                    update_data["room_number"] = allocation["roomNumber"]
+
+                if "bedNumber" in allocation:
+                    update_data["bed_number"] = allocation["bedNumber"]
+
+            if "status" in student_data:
+                update_data["status"] = student_data["status"]
+
+            if (
+                "cnic" in update_data
+                and update_data["cnic"] != student.get("cnic")
+            ):
+
+                existing_student = self.repository.get_student_by_cnic(
+                    update_data["cnic"]
                 )
-            )
+
+                if existing_student:
+
+                    logger.warning(
+                        "Duplicate CNIC detected during update | "
+                        f"CNIC: {update_data['cnic']}"
+                    )
+
+                    return APIResponse.error(
+                        "Student with this CNIC already exists."
+                    )
+
+            if (
+                "phone" in update_data
+                and update_data["phone"] != student.get("phone")
+            ):
+
+                existing_phone = self.repository.get_student_by_phone(
+                    update_data["phone"]
+                )
+
+                if existing_phone:
+
+                    logger.warning(
+                        "Duplicate phone detected during update | "
+                        f"Phone: {update_data['phone']}"
+                    )
+
+                    return APIResponse.error(
+                        "Phone number already exists."
+                    )
 
             self.repository.update_student(
                 student_id,
-                normalized_student,
+                update_data,
             )
 
-            updated_student = (
-                self.repository.get_student_by_id(
-                    student_id
-                )
-            )
-
-            serialized_student = (
-                self._serialize_student(
-                    updated_student
-                )
+            updated_student = self.repository.get_student_by_id(
+                student_id
             )
 
             logger.info(
@@ -473,7 +412,7 @@ class StudentService:
 
             return APIResponse.success(
                 "Student updated successfully.",
-                serialized_student,
+                self._serialize_student(updated_student),
             )
 
         except Exception as e:
@@ -564,9 +503,7 @@ class StudentService:
             return APIResponse.success(
                 "Students retrieved successfully.",
                 {
-                    "total_students": len(
-                        serialized_students
-                    ),
+                    "total_students": len(serialized_students),
                     "students": serialized_students,
                 },
             )
@@ -579,5 +516,34 @@ class StudentService:
 
             return APIResponse.error(
                 "Unable to search students.",
+                str(e),
+            )
+
+    def count_students(self):
+
+        try:
+
+            total_students = self.repository.count_students()
+
+            logger.info(
+                "Student count retrieved successfully | "
+                f"Total Students: {total_students}"
+            )
+
+            return APIResponse.success(
+                "Student count retrieved successfully.",
+                {
+                    "total_students": total_students,
+                },
+            )
+
+        except Exception as e:
+
+            logger.exception(
+                "Failed to count students."
+            )
+
+            return APIResponse.error(
+                "Unable to count students.",
                 str(e),
             )
