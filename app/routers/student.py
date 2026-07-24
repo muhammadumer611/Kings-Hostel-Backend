@@ -18,9 +18,7 @@ from app.schemas.student_schema import (
     StudentCountResponse,
 )
 
-from app.services.student_service import StudentService 
-
-
+from app.services.student_service import StudentService
 
 
 router = APIRouter(
@@ -29,6 +27,9 @@ router = APIRouter(
 )
 
 student_service = StudentService()
+
+
+# POST
 @router.post(
     "/",
     response_model=StudentCreateResponse,
@@ -43,6 +44,9 @@ def create_student(
     return student_service.create_student(
         student.model_dump()
     )
+
+
+# GET ALL
 @router.get(
     "/",
     response_model=StudentListResponse,
@@ -54,50 +58,9 @@ def get_all_students(
     current_admin=Depends(get_current_admin),
 ):
     return student_service.get_all_students()
-@router.get(
-    "/{student_id}",
-    response_model=StudentSingleResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Get Student By ID",
-    description="Retrieve a single student using the Student ID.",
-)
-def get_student_by_id(
-    student_id: str,
-    current_admin=Depends(get_current_admin),
-):
-    return student_service.get_student_by_id(
-        student_id
-    )
-@router.put(
-    "/{student_id}",
-    response_model=StudentUpdateResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Update Student",
-    description="Update an existing student's information.",
-)
-def update_student(
-    student_id: str,
-    student: StudentUpdate,
-    current_admin=Depends(get_current_admin),
-):
-    return student_service.update_student(
-        student_id,
-        student.model_dump(exclude_unset=True),
-    )
-@router.delete(
-    "/{student_id}",
-    response_model=StudentDeleteResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Delete Student",
-    description="Delete a student from the hostel.",
-)
-def delete_student(
-    student_id: str,
-    current_admin=Depends(get_current_admin),
-):
-    return student_service.delete_student(
-        student_id
-    )
+
+
+# SEARCH
 @router.get(
     "/search",
     response_model=StudentSearchResponse,
@@ -116,6 +79,9 @@ def search_students(
     return student_service.search_students(
         keyword
     )
+
+
+# COUNT
 @router.get(
     "/count",
     response_model=StudentCountResponse,
@@ -127,3 +93,56 @@ def count_students(
     current_admin=Depends(get_current_admin),
 ):
     return student_service.count_students()
+
+
+# GET BY ID
+@router.get(
+    "/{student_id}",
+    response_model=StudentSingleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Student By ID",
+    description="Retrieve a single student using the Student ID.",
+)
+def get_student_by_id(
+    student_id: str,
+    current_admin=Depends(get_current_admin),
+):
+    return student_service.get_student_by_id(
+        student_id
+    )
+
+
+# UPDATE
+@router.put(
+    "/{student_id}",
+    response_model=StudentUpdateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Student",
+    description="Update an existing student's information.",
+)
+def update_student(
+    student_id: str,
+    student: StudentUpdate,
+    current_admin=Depends(get_current_admin),
+):
+    return student_service.update_student(
+        student_id,
+        student.model_dump(exclude_unset=True),
+    )
+
+
+# DELETE
+@router.delete(
+    "/{student_id}",
+    response_model=StudentDeleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Delete Student",
+    description="Delete a student from the hostel.",
+)
+def delete_student(
+    student_id: str,
+    current_admin=Depends(get_current_admin),
+):
+    return student_service.delete_student(
+        student_id
+    )

@@ -109,6 +109,17 @@ class StudentAllocation(BaseModel):
         examples=["2 Seater"],
     )
 
+    roomNumber: Optional[str] = Field(
+        default=None,
+        description="Room Number",
+        examples=["A-101"],
+    )
+
+    bedNumber: Optional[str] = Field(
+        default=None,
+        description="Bed Number",
+        examples=["B-01"],
+    )
 
 class StudentCreate(BaseModel):
 
@@ -156,52 +167,34 @@ class StudentResponse(BaseModel):
         from_attributes=True,
     )
 
-    student_id: str = Field(
-        ...,
-        description="Generated Student ID",
-    )
-
-    firebase_id: str = Field(
-        ...,
-        description="Firebase Document ID",
-    )
+    student_id: str
+    firebase_id: str
 
     name: str
-
     cnic: str
-
+    email: EmailStr
     phone: str
 
-    email: EmailStr
+    block: Optional[str] = None
+    room_type: Optional[str] = None
+    room_number: Optional[str] = None
+    bed_number: Optional[str] = None
 
     guardian_name: Optional[str] = None
-
     guardian_phone: Optional[str] = None
-
     guardian_cnic: Optional[str] = None
-
-    block: Optional[str] = None
-
-    room_type: Optional[str] = None
 
     blood_group: Optional[str] = None
 
-    status: StudentStatus
-
-    room_number: Optional[str] = None
-
-    bed_number: Optional[str] = None
+    status: str
 
     monthly_fee: Optional[float] = 0
-
     security_deposit: Optional[float] = 0
-
     pending_fee: Optional[float] = 0
 
     fee_status: Optional[str] = None
 
     created_at: Optional[str] = None
-
     updated_at: Optional[str] = None
 class StudentListData(BaseModel):
 

@@ -53,71 +53,74 @@ class StudentService:
             }
 
         # ---------- Legacy Payload ----------
-        return {"name": (student_data.get("name")
-            or student_data.get("full_name")),
+        return {
+            "name": (
+                student_data.get("name")
+                or student_data.get("full_name")
+            ),
             "cnic": student_data.get("cnic"),
             "phone": student_data.get("phone"),
-            "email":student_data.get("email"),
+            "email": student_data.get("email"),
             "blood_group": student_data.get("blood_group"),
-            "guardian_name": (student_data.get("guardian_name")
-                or student_data.get("father_name")),
+            "guardian_name": (
+                student_data.get("guardian_name")
+                or student_data.get("father_name")
+            ),
             "guardian_phone": student_data.get("guardian_phone"),
             "guardian_cnic": student_data.get("guardian_cnic"),
             "block": student_data.get("block"),
             "room_type": student_data.get("room_type"),
             "room_number": student_data.get("room_number"),
             "bed_number": student_data.get("bed_number"),
-            "status": student_data.get("status","Active"),
+            "status": student_data.get("status", "Active"),
         }
 
     def _serialize_student(
         self,
         student: dict,
     ) -> dict:
-        """
-        Convert database document into
-        frontend response format.
-        """
 
         created_at = student.get("created_at")
-
-        join_date = ""
-
-        if isinstance(created_at, datetime):
-            join_date = created_at.strftime("%Y-%m-%d")
+        updated_at = student.get("updated_at")
 
         return {
-            "id": (
-                student.get("student_id")
-                or student.get("firebase_id")
-            ),
-            "studentId": student.get("student_id", ""),
+
+            "student_id": student.get("student_id", ""),
+            "firebase_id": student.get("firebase_id", ""),
+
             "name": student.get("name", ""),
             "cnic": student.get("cnic", ""),
-            "email": student.get("email", ""),
             "phone": student.get("phone", ""),
-            "block": student.get("block", ""),
-            "roomType": student.get("room_type", ""),
-            "roomNumber": student.get("room_number", ""),
-            "bedNumber": student.get("bed_number", ""),
-            "guardianName": student.get("guardian_name", ""),
-            "guardianPhone": student.get("guardian_phone", ""),
-            "guardianCnic": student.get("guardian_cnic", ""),
-            "bloodGroup": student.get("blood_group", ""),
+            "email": student.get("email", ""),
+
+            "guardian_name": student.get("guardian_name"),
+            "guardian_phone": student.get("guardian_phone"),
+            "guardian_cnic": student.get("guardian_cnic"),
+
+            "block": student.get("block"),
+            "room_type": student.get("room_type"),
+
+            "blood_group": student.get("blood_group"),
+
             "status": student.get("status", "Active"),
-            "course": student.get("course", ""),
-            "year": student.get("year", ""),
-            "monthlyFee": student.get("monthly_fee", 0),
-            "securityDeposit": student.get("security_deposit", 0),
-            "pendingFee": student.get("pending_fee", 0),
-            "feeStatus": student.get("fee_status", "Pending"),
-            "avatarUrl": student.get("avatar_url", ""),
-            "cnicFrontUrl": student.get("cnic_front_url", ""),
-            "cnicBackUrl": student.get("cnic_back_url", ""),
-            "emergencyContact": student.get("emergency_contact", ""),
-            "permanentAddress": student.get("address", ""),
-            "city": student.get("city", ""),
-            "joinDate": join_date,
+
+            "room_number": student.get("room_number"),
+            "bed_number": student.get("bed_number"),
+
+            "monthly_fee": student.get("monthly_fee", 0),
+            "security_deposit": student.get("security_deposit", 0),
+            "pending_fee": student.get("pending_fee", 0),
+            "fee_status": student.get("fee_status"),
+
+            "created_at": (
+                created_at.isoformat()
+                if created_at else None
+            ),
+
+            "updated_at": (
+                updated_at.isoformat()
+                if updated_at else None
+            ),
         }
 
     def create_student(
@@ -193,6 +196,20 @@ class StudentService:
                 "Failed to create student."
             )
 
+            print("========== ERROR ==========")
+            print(type(e))
+            print(e)
+            print("===========================")
+
+            return APIResponse.error(
+                "Unable to create student.",
+                str(e),
+            )
+
+            logger.exception(
+                "Failed to create student."
+            )
+
             return APIResponse.error(
                 "Unable to create student.",
                 str(e),
@@ -243,6 +260,7 @@ class StudentService:
             student = self.repository.get_student_by_id(
                 student_id
             )
+            print(student)
 
             if not student:
 
@@ -361,16 +379,13 @@ class StudentService:
                 and update_data["cnic"] != student.get("cnic")
             ):
 
-                existing_student = self.repository.get_student_by_cnic(
-                    update_data["cnic"]
+                existing_student = (
+                    self.repository.get_student_by_cnic(
+                        update_data["cnic"]
+                    )
                 )
 
                 if existing_student:
-
-                    logger.warning(
-                        "Duplicate CNIC detected during update | "
-                        f"CNIC: {update_data['cnic']}"
-                    )
 
                     return APIResponse.error(
                         "Student with this CNIC already exists."
@@ -381,16 +396,13 @@ class StudentService:
                 and update_data["phone"] != student.get("phone")
             ):
 
-                existing_phone = self.repository.get_student_by_phone(
-                    update_data["phone"]
+                existing_phone = (
+                    self.repository.get_student_by_phone(
+                        update_data["phone"]
+                    )
                 )
 
                 if existing_phone:
-
-                    logger.warning(
-                        "Duplicate phone detected during update | "
-                        f"Phone: {update_data['phone']}"
-                    )
 
                     return APIResponse.error(
                         "Phone number already exists."
@@ -405,6 +417,14 @@ class StudentService:
                 student_id
             )
 
+            print("UPDATED STUDENT =", updated_student)
+
+            serialized_student = self._serialize_student(
+                updated_student
+            )
+
+            print("SERIALIZED =", serialized_student)
+
             logger.info(
                 "Student updated successfully | "
                 f"Student ID: {student_id}"
@@ -412,7 +432,7 @@ class StudentService:
 
             return APIResponse.success(
                 "Student updated successfully.",
-                self._serialize_student(updated_student),
+                serialized_student,
             )
 
         except Exception as e:

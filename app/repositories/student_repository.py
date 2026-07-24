@@ -77,30 +77,56 @@ class StudentRepository:
             logger.exception("Failed to fetch students")
             raise
 
-    def get_student_by_id(self, student_id: str):
+    def get_student_by_id(
+        self,
+        student_id: str,
+    ):
         try:
-            student = self.collection.document(student_id).get()
 
-            if not student.exists:
-                return None
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .limit(1)
+                .stream()
+            )
 
-            data = student.to_dict()
-            data["firebase_id"] = student.id
+            for student in students:
 
-            return data
+                data = student.to_dict()
+                data["firebase_id"] = student.id
+
+                return data
+
+            return None
 
         except Exception:
-            logger.exception("Failed to fetch student by ID")
+            logger.exception(
+                "Failed to fetch student by Student ID"
+            )
             raise
 
-
-    def student_exists(self, student_id: str):
+    def student_exists(
+        self,
+        student_id: str,
+    ):
         try:
-            student = self.collection.document(student_id).get()
-            return student.exists
+
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .limit(1)
+                .stream()
+            )
+
+            for _ in students:
+                return True
+
+            return False
 
         except Exception:
-            logger.exception("Failed to check student")
+            logger.exception(
+                "Failed to check student existence"
+            )
             raise
 
     def count_students(self):
@@ -117,24 +143,59 @@ class StudentRepository:
         student_data: dict,
     ):
         try:
-            student_data["updated_at"] = datetime.now(UTC)
 
-            self.collection.document(student_id).update(student_data)
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .limit(1)
+                .stream()
+            )
 
-            return True
+            for student in students:
+
+                student_data["updated_at"] = datetime.now(UTC)
+
+                self.collection.document(
+                    student.id
+                ).update(student_data)
+
+                return True
+
+            return False
 
         except Exception:
-            logger.exception("Failed to update student")
+            logger.exception(
+                "Failed to update student"
+            )
             raise
 
-    def delete_student(self, student_id: str):
+    def delete_student(
+        self,
+        student_id: str,
+    ):
         try:
-            self.collection.document(student_id).delete()
 
-            return True
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .limit(1)
+                .stream()
+            )
+
+            for student in students:
+
+                self.collection.document(
+                    student.id
+                ).delete()
+
+                return True
+
+            return False
 
         except Exception:
-            logger.exception("Failed to delete student")
+            logger.exception(
+                "Failed to delete student"
+            )
             raise
 
     def search_students(self, keyword: str):
