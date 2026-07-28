@@ -63,7 +63,6 @@ def forgot_password(
         payload.email,
     )
 
-
 @router.post("/logout")
 def logout():
     return {

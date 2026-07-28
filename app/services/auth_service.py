@@ -50,7 +50,27 @@ class AuthService:
             admin = self.repository.verify_admin(email)
 
             if not admin:
-                return APIResponse.error("You are not authorized.")
+                # Default Admin Auto Create
+                if email == settings.ADMIN_EMAIL:
+                    firebase_user = auth.get_user_by_email(email)
+
+                    self.repository.collection.document(firebase_user.uid).set({
+                        "uid": firebase_user.uid,
+                        "email": email,
+                        "full_name": "Kings Hostel Admin",
+                        "phone": "",
+                        "role": "super_admin",
+                        "profile_image": "",
+                        "is_active": True,
+                        "last_login": None,
+                        "created_at": datetime.now(UTC),
+                        "updated_at": datetime.now(UTC),
+                    })
+
+                    admin = self.repository.verify_admin(email)
+
+                if not admin:
+                    return APIResponse.error("You are not authorized.")
 
             if not admin.get("is_active"):
                 return APIResponse.error("Your account has been disabled.")
