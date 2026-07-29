@@ -8,7 +8,24 @@ class StudentRepository:
 
     def __init__(self):
         self.collection = db.collection("students")
-
+    def _student_query(self):
+        return self.collection.where(
+        "is_active",
+        "==",
+        True,
+    )
+    def _student_to_dict(self, student):
+        data = student.to_dict() or {}
+        data["firebase_id"] = student.id
+        return data
+    def _sort_students(self, students: list[dict]):
+        students.sort(
+        key=lambda x: (
+            str(x.get("student_id", "")).upper(),
+            str(x.get("name", "")).upper(),
+        )
+    )
+        return students
     def _get_timestamp(self):
         return datetime.now(UTC).isoformat()
 
@@ -265,97 +282,284 @@ class StudentRepository:
             logger.exception("Failed to count students")
             raise
 
-    def update_student(
-        self,
-        student_id: str,
-        student_data: dict,
-    ):
+    def update_student(self, student_id: str, student_data: dict):
         try:
+            student_id = str(student_id).strip().upper()
+
             students = (
                 self.collection
                 .where("student_id", "==", student_id)
+                .where("is_active", "==", True)
                 .limit(1)
                 .stream()
             )
 
             for student in students:
+                student_data.pop("student_id", None)
                 student_data = self._normalize_student_data(student_data)
                 student_data["updated_at"] = self._get_timestamp()
 
-                self.collection.document(
-                    student.id
-                ).update(student_data)
+                self.collection.document(student.id).update(student_data)
+
+                logger.info(
+                    f"Student updated successfully | Student ID: {student_id}"
+                )
 
                 return True
 
             return False
 
         except Exception:
-            logger.exception(
-                "Failed to update student"
-            )
-            raise
-
-    def delete_student(
-        self,
-        student_id: str,
-    ):
-        try:
-            students = (
-                self.collection
-                .where("student_id", "==", student_id)
-                .limit(1)
-                .stream()
-            )
-
-            for student in students:
-                self.collection.document(
-                    student.id
-                ).delete()
-
-                return True
-
-            return False
-
-        except Exception:
-            logger.exception(
-                "Failed to delete student"
-            )
+            logger.exception("Failed to update student.")
             raise
 
     def search_students(self, keyword: str):
         try:
-            keyword = keyword.lower()
+            keyword = str(keyword).strip().lower()
 
-            students = self.collection.stream()
+            students = (
+                self.collection
+                .where("is_active", "==", True)
+                .stream()
+            )
 
             result = []
 
             for student in students:
-                data = student.to_dict()
+                data = student.to_dict() or {}
 
-                name = str(
-                    data.get("name", "")
-                ).lower()
+                searchable_fields = [
+                    str(data.get("student_id", "")).lower(),
+                    str(data.get("name", "")).lower(),
+                    str(data.get("cnic", "")).lower(),
+                    str(data.get("phone", "")).lower(),
+                    str(data.get("email", "")).lower(),
+                    str(data.get("guardian_name", "")).lower(),
+                    str(data.get("guardian_phone", "")).lower(),
+                    str(data.get("room_number", "")).lower(),
+                    str(data.get("address","")).lower(),
+                    str(data.get("blood_group","")).lower(),
+                    str(data.get("bed_number", "")).lower(),
+                    str(data.get("fee_status", "")).lower(),
+                    str(data.get("status", "")).lower(),
+                ]
 
-                cnic = str(
-                    data.get("cnic", "")
-                ).lower()
-
-                phone = str(
-                    data.get("phone", "")
-                ).lower()
-
-                if (
-                    keyword in name
-                    or keyword in cnic
-                    or keyword in phone
-                ):
+                if any(keyword in field for field in searchable_fields):
                     data["firebase_id"] = student.id
                     result.append(data)
+
+            result.sort(
+                key=lambda x: (
+                    str(x.get("student_id", "")).upper(),
+                    str(x.get("name", "")).upper(),
+                )
+            )
+
+            logger.info(
+                f"Student search completed | Keyword: {keyword} | Results: {len(result)}"
+            )
 
             return result
 
         except Exception:
-            logger.exception("Failed to search students")
+            logger.exception("Failed to search students.")
+            raise
+
+    def disable_student(self, student_id: str):
+        try:
+            student_id = str(student_id).strip().upper()
+
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .where("is_active", "==", True)
+                .limit(1)
+                .stream()
+            )
+
+            for student in students:
+                self.collection.document(student.id).update(
+                    {
+                        "is_active": False,
+                        "updated_at": self._get_timestamp(),
+                    }
+                )
+
+                logger.info(
+                    f"Student disabled successfully | Student ID: {student_id}"
+                )
+
+                return True
+
+            return False
+
+        except Exception:
+            logger.exception("Failed to disable student.")
+            raise
+
+    def enable_student(self, student_id: str):
+        try:
+            student_id = str(student_id).strip().upper()
+
+            students = (
+                self.collection
+                .where("student_id", "==", student_id)
+                .where("is_active", "==", False)
+                .limit(1)
+                .stream()
+            )
+
+            for student in students:
+                self.collection.document(student.id).update(
+                    {
+                        "is_active": True,
+                        "updated_at": self._get_timestamp(),
+                    }
+                )
+
+                logger.info(
+                    f"Student enabled successfully | Student ID: {student_id}"
+                )
+
+                return True
+
+            return False
+
+        except Exception:
+            logger.exception("Failed to enable student.")
+            raise
+
+    def get_active_students(self):
+        try:
+            students = (
+                self.collection
+                .where("is_active", "==", True)
+                .stream()
+            )
+
+            student_list = []
+
+            for student in students:
+                data = student.to_dict() or {}
+                data["firebase_id"] = student.id
+                student_list.append(data)
+
+            student_list.sort(
+                key=lambda x: (
+                    str(x.get("student_id", "")).upper(),
+                    str(x.get("name", "")).upper(),
+                )
+            )
+
+            logger.info(
+                f"Fetched {len(student_list)} active students."
+            )
+
+            return student_list
+
+        except Exception:
+            logger.exception("Failed to fetch active students.")
+            raise
+
+    def get_inactive_students(self):
+        try:
+            students = (
+                self.collection
+                .where("is_active", "==", False)
+                .stream()
+            )
+
+            student_list = []
+
+            for student in students:
+                data = student.to_dict() or {}
+                data["firebase_id"] = student.id
+                student_list.append(data)
+
+            student_list.sort(
+                key=lambda x: (
+                    str(x.get("student_id", "")).upper(),
+                    str(x.get("name", "")).upper(),
+                )
+            )
+
+            logger.info(
+                f"Fetched {len(student_list)} inactive students."
+            )
+
+            return student_list
+
+        except Exception:
+            logger.exception("Failed to fetch inactive students.")
+            raise
+
+    def get_students_by_room(self, room_firebase_id: str):
+        try:
+            room_firebase_id = str(room_firebase_id).strip()
+
+            students = (
+                self.collection
+                .where("room_firebase_id", "==", room_firebase_id)
+                .where("is_active", "==", True)
+                .stream()
+            )
+
+            student_list = []
+
+            for student in students:
+                data = student.to_dict() or {}
+                data["firebase_id"] = student.id
+                student_list.append(data)
+
+            student_list.sort(
+                key=lambda x: (
+                    str(x.get("bed_number", "")).upper(),
+                    str(x.get("student_id", "")).upper(),
+                )
+            )
+
+            logger.info(
+                f"Fetched {len(student_list)} students for room {room_firebase_id}"
+            )
+
+            return student_list
+
+        except Exception:
+            logger.exception("Failed to fetch students by room.")
+            raise
+
+    def get_students_without_room(self):
+        try:
+            students = (
+                self.collection
+                .where("is_active", "==", True)
+                .stream()
+            )
+
+            student_list = []
+
+            for student in students:
+                data = student.to_dict() or {}
+
+                room_id = data.get("room_firebase_id")
+
+                if not room_id:
+                    data["firebase_id"] = student.id
+                    student_list.append(data)
+
+            student_list.sort(
+                key=lambda x: (
+                    str(x.get("student_id", "")).upper(),
+                    str(x.get("name", "")).upper(),
+                )
+            )
+
+            logger.info(
+                f"Fetched {len(student_list)} students without room allocation."
+            )
+
+            return student_list
+
+        except Exception:
+            logger.exception("Failed to fetch students without room.")
             raise
