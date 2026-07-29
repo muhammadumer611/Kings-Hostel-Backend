@@ -51,12 +51,19 @@ class RoomRepository:
     def create_room(self, room_data: dict):
         try:
             normalized = self._normalize_room_data(room_data)
+
             if not normalized.get("room_number"):
                 raise ValueError("Room number cannot be empty.")
+
+            if self.get_room_by_number(normalized["room_number"]):
+                raise ValueError("Room number already exists.")
+
             if normalized.get("total_beds", 0) <= 0:
                 raise ValueError("Total beds must be greater than 0.")
+
             if normalized.get("monthly_fee", 0) <= 0:
                 raise ValueError("Monthly fee must be greater than 0.")
+
             if normalized.get("security_deposit", 0) < 0:
                 raise ValueError("Security deposit cannot be negative.")
 
@@ -119,7 +126,13 @@ class RoomRepository:
     def get_room_by_number(self, room_number: str):
         try:
             normalized_number = str(room_number or "").strip().upper()
-            rooms = self.collection.where("room_number", "==", normalized_number).limit(1).stream()
+            rooms = (
+                self.collection
+                .where("room_number", "==", normalized_number)
+                .where("is_active", "==", True)
+                .limit(1)
+                .stream()
+            )
 
             for room in rooms:
                 data = room.to_dict() or {}
@@ -197,12 +210,23 @@ class RoomRepository:
 
     def delete_room(self, firebase_id: str):
         try:
+            room_doc = self.collection.document(firebase_id).get()
+
+            if not room_doc.exists:
+                return False
+
+            room_data = room_doc.to_dict() or {}
+
+            if room_data.get("current_students"):
+                raise ValueError("Cannot delete room because students are living in it.")
+
             self.collection.document(firebase_id).update(
                 {
                     "is_active": False,
                     "updated_at": self._get_timestamp(),
                 }
             )
+
             logger.info(f"Room deleted successfully | Firebase ID: {firebase_id}")
             return True
 
@@ -300,13 +324,15 @@ class RoomRepository:
                 raise ValueError("Room is disabled.")
 
             students = [str(student) for student in (data.get("current_students") or []) if str(student).strip()]
-            if student_id in students:
+            normalized_student_id = str(student_id).strip()
+
+            if normalized_student_id in students:
                 return False
 
             if int(data.get("available_beds", 0) or 0) <= 0:
                 raise ValueError("Room is already full.")
 
-            students.append(str(student_id))
+            students.append(normalized_student_id)
             occupied_beds, available_beds, status = self._calculate_metrics(data.get("total_beds", 0), len(students))
 
             transaction.update(
@@ -332,11 +358,18 @@ class RoomRepository:
                 return False
 
             data = room_doc.to_dict() or {}
-            students = [str(student) for student in (data.get("current_students") or []) if str(student).strip()]
-            if str(student_id) not in students:
+            students = [
+                str(student)
+                for student in (data.get("current_students") or [])
+                if str(student).strip()
+            ]
+
+            normalized_student_id = str(student_id).strip()
+
+            if normalized_student_id not in students:
                 return False
 
-            students.remove(str(student_id))
+            students.remove(normalized_student_id)
             occupied_beds, available_beds, status = self._calculate_metrics(data.get("total_beds", 0), len(students))
 
             transaction.update(
@@ -372,7 +405,7 @@ class RoomRepository:
 
             from_students = [str(student) for student in (from_data.get("current_students") or []) if str(student).strip()]
             to_students = [str(student) for student in (to_data.get("current_students") or []) if str(student).strip()]
-            normalized_student_id = str(student_id)
+            normalized_student_id = str(student_id).strip()
 
             if normalized_student_id not in from_students:
                 return False
@@ -413,12 +446,25 @@ class RoomRepository:
 
     def disable_room(self, firebase_id: str):
         try:
+            room_doc = self.collection.document(firebase_id).get()
+
+            if not room_doc.exists:
+                return False
+
+            room_data = room_doc.to_dict() or {}
+
+            if room_data.get("current_students"):
+                raise ValueError("Cannot disable room because students are living in it.")
+
             self.collection.document(firebase_id).update(
                 {
                     "is_active": False,
                     "updated_at": self._get_timestamp(),
                 }
             )
+
+            logger.info(f"Room disabled successfully | Firebase ID: {firebase_id}")
+
             return True
 
         except Exception:
@@ -427,12 +473,20 @@ class RoomRepository:
 
     def enable_room(self, firebase_id: str):
         try:
+            room_doc = self.collection.document(firebase_id).get()
+
+            if not room_doc.exists:
+                return False
+
             self.collection.document(firebase_id).update(
                 {
                     "is_active": True,
                     "updated_at": self._get_timestamp(),
                 }
             )
+
+            logger.info(f"Room enabled successfully | Firebase ID: {firebase_id}")
+
             return True
 
         except Exception:
@@ -442,28 +496,30 @@ class RoomRepository:
     def get_rooms_with_available_beds(self):
         try:
             rooms = self.collection.where("is_active", "==", True).stream()
+
             result = []
 
             for room in rooms:
                 data = room.to_dict() or {}
-                if int(data.get("available_beds", 0) or 0) > 0:
+
+                if int(data.get("available_beds", 0)) > 0:
                     data["firebase_id"] = room.id
                     result.append(data)
 
             result = sorted(
                 result,
-                key=lambda item: (int(item.get("floor") or 0), str(item.get("room_number") or "").upper()),
+                key=lambda item: (
+                    int(item.get("floor") or 0),
+                    str(item.get("room_number") or "").upper(),
+                ),
             )
+
+            logger.info(
+                f"Rooms with available beds retrieved successfully | Total: {len(result)}"
+            )
+
             return result
 
         except Exception:
             logger.exception("Failed to retrieve rooms with available beds.")
-            raise
-
-        except Exception:
-
-            logger.exception(
-                "Failed to fetch available rooms."
-            )
-
             raise

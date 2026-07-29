@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -47,10 +48,7 @@ class RoomCreate(BaseModel):
         examples=[5000],
     )
 
-    is_active: bool = Field(
-        default=True,
-        description="Room Active Status",
-    )
+    
 
     @field_validator("room_number")
     @classmethod
@@ -59,7 +57,6 @@ class RoomCreate(BaseModel):
         if not trimmed_value:
             raise ValueError("Room number cannot be empty.")
         return trimmed_value
-
 
 class RoomUpdate(BaseModel):
 
@@ -82,12 +79,15 @@ class RoomUpdate(BaseModel):
     def validate_room_number(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
+
         trimmed_value = str(value).strip().upper()
+
         if not trimmed_value:
             raise ValueError("Room number cannot be empty.")
+
         return trimmed_value
 
-
+        
 class RoomResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
@@ -114,9 +114,11 @@ class RoomResponse(BaseModel):
 
     current_students: list[str] = Field(default_factory=list)
 
-    created_at: Optional[str] = None
+    
 
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 
 
 class RoomListData(BaseModel):
@@ -126,13 +128,21 @@ class RoomListData(BaseModel):
     rooms: list[RoomResponse]
 
 
+class RoomCreateData(BaseModel):
+
+    firebase_id: str = Field(
+        ...,
+        description="Firebase Room Document ID",
+    )
+
+
 class RoomCreateResponse(BaseModel):
 
     success: bool
 
     message: str
 
-    data: dict
+    data: RoomCreateData
 
     errors: Optional[list] = None
 

@@ -12,17 +12,11 @@ class StudentStatus(str, Enum):
     INACTIVE = "Inactive"
 
 
-class HostelBlock(str, Enum):
-    A = "A"
-    B = "B"
-    C = "C"
-    D = "D"
+class FeeStatus(str, Enum):
+    PAID = "Paid"
+    PENDING = "Pending"
 
 
-class RoomType(str, Enum):
-    TWO_SEATER = "2 Seater"
-    THREE_SEATER = "3 Seater"
-    FOUR_SEATER = "4 Seater"
 class StudentPersonal(BaseModel):
 
     model_config = ConfigDict(
@@ -40,7 +34,7 @@ class StudentPersonal(BaseModel):
     cnic: str = Field(
         ...,
         pattern=r"^\d{13}$",
-        description="13-digit CNIC without dashes",
+        description="13 Digit CNIC Without Dashes",
         examples=["3520212345671"],
     )
 
@@ -51,16 +45,40 @@ class StudentPersonal(BaseModel):
         examples=["03001234567"],
     )
 
-    email: EmailStr = Field(
-        ...,
+    email: Optional[EmailStr] = Field(
+        default=None,
         description="Student Email",
         examples=["umer@gmail.com"],
     )
 
-    bloodGroup: Optional[str] = Field(
+    blood_group: Optional[str] = Field(
         default=None,
+        max_length=5,
         description="Blood Group",
         examples=["O+"],
+    )
+
+    address: str = Field(
+        ...,
+        min_length=5,
+        max_length=300,
+        description="Student Address",
+        examples=["Sargodha, Punjab"],
+    )
+
+    profile_image: Optional[str] = Field(
+        default=None,
+        description="Student Profile Image URL",
+    )
+
+    cnic_front_image: Optional[str] = Field(
+        default=None,
+        description="Student CNIC Front Image URL",
+    )
+
+    cnic_back_image: Optional[str] = Field(
+        default=None,
+        description="Student CNIC Back Image URL",
     )
 
 
@@ -70,56 +88,68 @@ class StudentGuardian(BaseModel):
         extra="forbid"
     )
 
-    name: str = Field(
+    guardian_name: str = Field(
         ...,
         min_length=2,
         max_length=100,
-        description="Guardian Name",
+        description="Guardian Full Name",
         examples=["Muhammad Ali"],
     )
 
-    phone: str = Field(
+    guardian_phone: str = Field(
         ...,
         pattern=r"^03\d{9}$",
         description="Guardian Mobile Number",
         examples=["03111234567"],
     )
 
-    cnic: str = Field(
+    guardian_cnic: str = Field(
         ...,
         pattern=r"^\d{13}$",
-        description="Guardian CNIC",
+        description="13 Digit Guardian CNIC Without Dashes",
         examples=["3520211111111"],
     )
+
+    relation: Optional[str] = Field(
+        default=None,
+        max_length=30,
+        description="Relation with Student",
+        examples=["Father"],
+    )
+
+
 class StudentAllocation(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid"
     )
 
-    block: HostelBlock = Field(
-        ...,
-        description="Hostel Block",
-        examples=["A"],
-    )
-
-    roomType: RoomType = Field(
-        ...,
-        description="Room Type",
-        examples=["2 Seater"],
-    )
-
-    roomNumber: Optional[str] = Field(
+    room_firebase_id: Optional[str] = Field(
         default=None,
-        description="Room Number",
-        examples=["A-101"],
+        description="Firebase ID of Assigned Room",
+        examples=["YH8Kq9M2LmNxP4RtUvW"],
     )
 
-    bedNumber: Optional[str] = Field(
+    bed_number: Optional[str] = Field(
         default=None,
-        description="Bed Number",
-        examples=["B-01"],
+        max_length=20,
+        description="Allocated Bed Number",
+        examples=["Bed-01"],
     )
+
+    joining_date: Optional[str] = Field(
+        default=None,
+        description="Hostel Joining Date (ISO Format)",
+        examples=["2026-07-29"],
+    )
+
+    remarks: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Allocation Remarks",
+        examples=["Shifted from Room 101"],
+    )
+
 
 class StudentCreate(BaseModel):
 
@@ -139,7 +169,7 @@ class StudentCreate(BaseModel):
 
     allocation: StudentAllocation = Field(
         ...,
-        description="Hostel Allocation Information",
+        description="Room Allocation Information",
     )
 
     status: StudentStatus = Field(
@@ -161,46 +191,63 @@ class StudentUpdate(BaseModel):
     allocation: Optional[StudentAllocation] = None
 
     status: Optional[StudentStatus] = None
+
+
 class StudentResponse(BaseModel):
 
     model_config = ConfigDict(
         from_attributes=True,
     )
 
+    # Student IDs
     student_id: str
     firebase_id: str
 
+    # Personal Information
     name: str
     cnic: str
-    email: EmailStr
     phone: str
+    email: Optional[EmailStr] = None
 
-    block: Optional[str] = None
-    room_type: Optional[str] = None
-    room_number: Optional[str] = None
-    bed_number: Optional[str] = None
+    blood_group: Optional[str] = None
+    address: Optional[str] = None
 
+    profile_image: Optional[str] = None
+    cnic_front_image: Optional[str] = None
+    cnic_back_image: Optional[str] = None
+
+    # Guardian Information
     guardian_name: Optional[str] = None
     guardian_phone: Optional[str] = None
     guardian_cnic: Optional[str] = None
+    relation: Optional[str] = None
 
-    blood_group: Optional[str] = None
+    # Room Information
+    room_firebase_id: Optional[str] = None
+    room_number: Optional[str] = None
+    floor: Optional[int] = None
+    bed_number: Optional[str] = None
 
-    status: str
+    # Fee Information
+    monthly_fee: float = 0.0
+    security_deposit: float = 0.0
+    pending_fee: float = 0.0
+    fee_status: Optional[FeeStatus] = None
 
-    monthly_fee: Optional[float] = 0
-    security_deposit: Optional[float] = 0
-    pending_fee: Optional[float] = 0
+    # Student Status
+    status: StudentStatus
 
-    fee_status: Optional[str] = None
-
+    # Dates
+    joining_date: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
 class StudentListData(BaseModel):
 
     total_students: int = Field(
         ...,
-        description="Total number of students",
+        description="Total Students",
         examples=[25],
     )
 
@@ -235,27 +282,7 @@ class StudentCreateResponse(BaseModel):
 
     message: str
 
-    data: dict
-
-    errors: Optional[list] = None
-
-
-class StudentDeleteResponse(BaseModel):
-
-    success: bool
-
-    message: str
-
-    data: Optional[dict] = None
-
-    errors: Optional[list] = None
-class StudentSearchResponse(BaseModel):
-
-    success: bool
-
-    message: str
-
-    data: StudentListData
+    data: dict[str, str]
 
     errors: Optional[list] = None
 
@@ -271,12 +298,34 @@ class StudentUpdateResponse(BaseModel):
     errors: Optional[list] = None
 
 
+class StudentDeleteResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: Optional[dict[str, str]] = None
+
+    errors: Optional[list] = None
+
+
+class StudentSearchResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: StudentListData
+
+    errors: Optional[list] = None
+
+
 class StudentCountResponse(BaseModel):
 
     success: bool
 
     message: str
 
-    data: dict
+    data: dict[str, int]
 
     errors: Optional[list] = None
