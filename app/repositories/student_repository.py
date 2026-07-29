@@ -8,16 +8,20 @@ class StudentRepository:
 
     def __init__(self):
         self.collection = db.collection("students")
+
+
     def _student_query(self):
         return self.collection.where(
         "is_active",
         "==",
         True,
     )
+
     def _student_to_dict(self, student):
         data = student.to_dict() or {}
         data["firebase_id"] = student.id
         return data
+    
     def _sort_students(self, students: list[dict]):
         students.sort(
         key=lambda x: (
@@ -26,6 +30,7 @@ class StudentRepository:
         )
     )
         return students
+    
     def _get_timestamp(self):
         return datetime.now(UTC).isoformat()
 
@@ -87,9 +92,7 @@ class StudentRepository:
             normalized["pending_fee"] = float(normalized["pending_fee"])
 
         return normalized
-
-    def create_student(self, student_data: dict):
-        try:
+    def _prepare_student_data(self, student_data: dict) -> dict:
             student_data = self._normalize_student_data(student_data)
 
             student_data.setdefault("is_active", True)
@@ -106,6 +109,23 @@ class StudentRepository:
             student_data["created_at"] = self._get_timestamp()
             student_data["updated_at"] = self._get_timestamp()
 
+            return student_data
+    
+    def _prepare_update_data(self, student_data: dict) -> dict:
+            student_data = self._normalize_student_data(student_data)
+
+            student_data.pop("student_id", None)
+            student_data.pop("created_at", None)
+            student_data.pop("firebase_id", None)
+
+            student_data["updated_at"] = self._get_timestamp()
+
+            return student_data
+
+    def create_student(self, student_data: dict):
+        try:
+            student_data = self._prepare_student_data(student_data)
+           
             student_ref = self.collection.document()
 
             student_ref.set(student_data)
@@ -247,13 +267,7 @@ class StudentRepository:
                 data["firebase_id"] = student.id
                 student_list.append(data)
 
-            student_list = sorted(
-                student_list,
-                key=lambda x: (
-                    str(x.get("student_id", "")).upper(),
-                    str(x.get("name", "")).upper(),
-                ),
-            )
+            student_list = self._sort_students(student_list)
 
             return student_list
 
@@ -295,9 +309,7 @@ class StudentRepository:
             )
 
             for student in students:
-                student_data.pop("student_id", None)
-                student_data = self._normalize_student_data(student_data)
-                student_data["updated_at"] = self._get_timestamp()
+                student_data = self._prepare_update_data(student_data)
 
                 self.collection.document(student.id).update(student_data)
 
@@ -348,12 +360,7 @@ class StudentRepository:
                     data["firebase_id"] = student.id
                     result.append(data)
 
-            result.sort(
-                key=lambda x: (
-                    str(x.get("student_id", "")).upper(),
-                    str(x.get("name", "")).upper(),
-                )
-            )
+            result = self._sort_students(result)
 
             logger.info(
                 f"Student search completed | Keyword: {keyword} | Results: {len(result)}"
@@ -476,12 +483,7 @@ class StudentRepository:
                 data["firebase_id"] = student.id
                 student_list.append(data)
 
-            student_list.sort(
-                key=lambda x: (
-                    str(x.get("student_id", "")).upper(),
-                    str(x.get("name", "")).upper(),
-                )
-            )
+            student_list = self._sort_students(student_list)
 
             logger.info(
                 f"Fetched {len(student_list)} inactive students."
@@ -547,12 +549,7 @@ class StudentRepository:
                     data["firebase_id"] = student.id
                     student_list.append(data)
 
-            student_list.sort(
-                key=lambda x: (
-                    str(x.get("student_id", "")).upper(),
-                    str(x.get("name", "")).upper(),
-                )
-            )
+            student_list = self._sort_students(student_list)
 
             logger.info(
                 f"Fetched {len(student_list)} students without room allocation."
