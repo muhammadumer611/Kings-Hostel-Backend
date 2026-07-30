@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from app.repositories.student_repository import StudentRepository
 from app.utils.student_id_generator import StudentIDGenerator
 from app.utils.api_response import APIResponse
@@ -9,14 +7,10 @@ from app.utils.logger import logger
 class StudentService:
 
     def __init__(self):
-
         self.repository = StudentRepository()
         self.id_generator = StudentIDGenerator()
 
-    def _normalize_student_data(
-        self,
-        student_data: dict,
-    ) -> dict:
+    def _normalize_student_data(self, student_data: dict) -> dict:
 
         # ---------- New Frontend Payload ----------
         if (
@@ -24,7 +18,6 @@ class StudentService:
             and "guardian" in student_data
             and "allocation" in student_data
         ):
-
             personal = student_data.get("personal") or {}
             guardian = student_data.get("guardian") or {}
             allocation = student_data.get("allocation") or {}
@@ -46,18 +39,12 @@ class StudentService:
                 "room_number": allocation.get("roomNumber"),
                 "bed_number": allocation.get("bedNumber"),
 
-                "status": student_data.get(
-                    "status",
-                    "Active",
-                ),
+                "status": student_data.get("status", "Active"),
             }
 
         # ---------- Legacy Payload ----------
         return {
-            "name": (
-                student_data.get("name")
-                or student_data.get("full_name")
-            ),
+            "name": student_data.get("name") or student_data.get("full_name"),
             "cnic": student_data.get("cnic"),
             "phone": student_data.get("phone"),
             "email": student_data.get("email"),
@@ -75,16 +62,11 @@ class StudentService:
             "status": student_data.get("status", "Active"),
         }
 
-    def _serialize_student(
-        self,
-        student: dict,
-    ) -> dict:
-
+    def _serialize_student(self, student: dict) -> dict:
         created_at = student.get("created_at")
         updated_at = student.get("updated_at")
 
         return {
-
             "student_id": student.get("student_id", ""),
             "firebase_id": student.get("firebase_id", ""),
 
@@ -114,34 +96,26 @@ class StudentService:
 
             "created_at": (
                 created_at.isoformat()
-                if created_at else None
+                if hasattr(created_at, "isoformat")
+                else created_at
             ),
 
             "updated_at": (
                 updated_at.isoformat()
-                if updated_at else None
+                if hasattr(updated_at, "isoformat")
+                else updated_at
             ),
         }
 
-    def create_student(
-        self,
-        student_data: dict,
-    ):
-
+    def create_student(self, student_data: dict):
         try:
+            normalized_student = self._normalize_student_data(student_data)
 
-            normalized_student = self._normalize_student_data(
-                student_data
-            )
-
-            existing_student = (
-                self.repository.get_student_by_cnic(
-                    normalized_student.get("cnic", "")
-                )
+            existing_student = self.repository.get_student_by_cnic(
+                normalized_student.get("cnic", "")
             )
 
             if existing_student:
-
                 logger.warning(
                     "Duplicate CNIC detected | "
                     f"CNIC: {normalized_student.get('cnic')}"
@@ -151,14 +125,11 @@ class StudentService:
                     "Student with this CNIC already exists."
                 )
 
-            existing_phone = (
-                self.repository.get_student_by_phone(
-                    normalized_student.get("phone", "")
-                )
+            existing_phone = self.repository.get_student_by_phone(
+                normalized_student.get("phone", "")
             )
 
             if existing_phone:
-
                 logger.warning(
                     "Duplicate phone detected | "
                     f"Phone: {normalized_student.get('phone')}"
@@ -168,13 +139,22 @@ class StudentService:
                     "Phone number already exists."
                 )
 
-            normalized_student["student_id"] = (
-                self.id_generator.generate()
-            )
+            email = normalized_student.get("email")
 
-            firebase_id = self.repository.create_student(
-                normalized_student
-            )
+            if email:
+                existing_email = self.repository.get_student_by_email(email)
+
+                if existing_email:
+                    return APIResponse.error(
+                        "Email already exists."
+                    )
+
+            normalized_student["student_id"] = self.id_generator.generate()
+
+            while self.repository.student_exists(normalized_student["student_id"]):
+                normalized_student["student_id"] = self.id_generator.generate()
+
+            firebase_id = self.repository.create_student(normalized_student)
 
             logger.info(
                 "Student created successfully | "
@@ -191,24 +171,7 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to create student."
-            )
-
-            print("========== ERROR ==========")
-            print(type(e))
-            print(e)
-            print("===========================")
-
-            return APIResponse.error(
-                "Unable to create student.",
-                str(e),
-            )
-
-            logger.exception(
-                "Failed to create student."
-            )
+            logger.exception("Failed to create student.")
 
             return APIResponse.error(
                 "Unable to create student.",
@@ -216,9 +179,7 @@ class StudentService:
             )
 
     def get_all_students(self):
-
         try:
-
             students = self.repository.get_all_students()
 
             serialized_students = [
@@ -240,30 +201,20 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to retrieve students."
-            )
+            logger.exception("Failed to retrieve students.")
 
             return APIResponse.error(
                 "Unable to retrieve students.",
                 str(e),
             )
 
-    def get_student_by_id(
-        self,
-        student_id: str,
-    ):
-
+    def get_student_by_id(self, student_id: str):
         try:
+            student_id = str(student_id).strip().upper()
 
-            student = self.repository.get_student_by_id(
-                student_id
-            )
-            print(student)
+            student = self.repository.get_student_by_student_id(student_id)
 
             if not student:
-
                 logger.warning(
                     "Student not found | "
                     f"Student ID: {student_id}"
@@ -273,9 +224,7 @@ class StudentService:
                     "Student not found."
                 )
 
-            serialized_student = self._serialize_student(
-                student
-            )
+            serialized_student = self._serialize_student(student)
 
             logger.info(
                 "Student retrieved successfully | "
@@ -288,30 +237,19 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to retrieve student."
-            )
+            logger.exception("Failed to retrieve student.")
 
             return APIResponse.error(
                 "Unable to retrieve student.",
                 str(e),
             )
 
-    def update_student(
-        self,
-        student_id: str,
-        student_data: dict,
-    ):
-
+    def update_student(self, student_id: str, student_data: dict):
         try:
-
-            student = self.repository.get_student_by_id(
-                student_id
-            )
+            student_id = str(student_id).strip().upper()
+            student = self.repository.get_student_by_student_id(student_id)
 
             if not student:
-
                 logger.warning(
                     "Student not found for update | "
                     f"Student ID: {student_id}"
@@ -324,7 +262,6 @@ class StudentService:
             update_data = {}
 
             if "personal" in student_data:
-
                 personal = student_data["personal"]
 
                 if "name" in personal:
@@ -343,7 +280,6 @@ class StudentService:
                     update_data["blood_group"] = personal["bloodGroup"]
 
             if "guardian" in student_data:
-
                 guardian = student_data["guardian"]
 
                 if "name" in guardian:
@@ -356,7 +292,6 @@ class StudentService:
                     update_data["guardian_cnic"] = guardian["cnic"]
 
             if "allocation" in student_data:
-
                 allocation = student_data["allocation"]
 
                 if "block" in allocation:
@@ -378,15 +313,11 @@ class StudentService:
                 "cnic" in update_data
                 and update_data["cnic"] != student.get("cnic")
             ):
-
-                existing_student = (
-                    self.repository.get_student_by_cnic(
-                        update_data["cnic"]
-                    )
+                existing_student = self.repository.get_student_by_cnic(
+                    update_data["cnic"]
                 )
 
                 if existing_student:
-
                     return APIResponse.error(
                         "Student with this CNIC already exists."
                     )
@@ -395,35 +326,43 @@ class StudentService:
                 "phone" in update_data
                 and update_data["phone"] != student.get("phone")
             ):
-
-                existing_phone = (
-                    self.repository.get_student_by_phone(
-                        update_data["phone"]
-                    )
+                existing_phone = self.repository.get_student_by_phone(
+                    update_data["phone"]
                 )
 
                 if existing_phone:
-
                     return APIResponse.error(
                         "Phone number already exists."
                     )
 
-            self.repository.update_student(
-                student_id,
-                update_data,
-            )
+            if (
+                    update_data.get("email")
+                    and update_data["email"] != student.get("email")
+            ):
+                    existing_email = self.repository.get_student_by_email(
+                    update_data["email"]
+    )
 
-            updated_student = self.repository.get_student_by_id(
-                student_id
-            )
+                    if existing_email:
+                     return APIResponse.error(
+                    "Email already exists."
+                    )
 
-            print("UPDATED STUDENT =", updated_student)
+            updated = self.repository.update_student(student_id, update_data)
 
-            serialized_student = self._serialize_student(
-                updated_student
-            )
+            if not updated:
+                return APIResponse.error(
+                    "Student update failed."
+                )
 
-            print("SERIALIZED =", serialized_student)
+            updated_student = self.repository.get_student_by_student_id(student_id)
+
+            if not updated_student:
+                return APIResponse.error(
+                    "Student not found after update."
+                )
+
+            serialized_student = self._serialize_student(updated_student)
 
             logger.info(
                 "Student updated successfully | "
@@ -436,27 +375,16 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to update student."
-            )
+            logger.exception("Failed to update student.")
 
             return APIResponse.error(
                 "Unable to update student.",
                 str(e),
             )
 
-    def delete_student(
-        self,
-        student_id: str,
-    ):
-
+    def delete_student(self, student_id: str):
         try:
-
-            if not self.repository.student_exists(
-                student_id
-            ):
-
+            if not self.repository.student_exists(student_id):
                 logger.warning(
                     "Student not found for deletion | "
                     f"Student ID: {student_id}"
@@ -466,48 +394,38 @@ class StudentService:
                     "Student not found."
                 )
 
-            self.repository.delete_student(
-                student_id
-            )
+            deleted = self.repository.disable_student(student_id)
+
+            if not deleted:
+                return APIResponse.error("Student not found.")
 
             logger.info(
-                "Student deleted successfully | "
+                "Student disabled successfully | "
                 f"Student ID: {student_id}"
             )
 
             return APIResponse.success(
-                "Student deleted successfully."
+                "Student disabled successfully."
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to delete student."
-            )
+            logger.exception("Failed to disable student.")
 
             return APIResponse.error(
-                "Unable to delete student.",
+                "Unable to disable student.",
                 str(e),
             )
 
-    def search_students(
-        self,
-        keyword: str,
-    ):
-
+    def search_students(self, keyword: str):
         try:
-
-            keyword = keyword.strip()
+            keyword = str(keyword).strip()
 
             if not keyword:
-
                 return APIResponse.error(
                     "Search keyword is required."
                 )
 
-            students = self.repository.search_students(
-                keyword
-            )
+            students = self.repository.search_students(keyword)
 
             serialized_students = [
                 self._serialize_student(student)
@@ -529,10 +447,7 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to search students."
-            )
+            logger.exception("Failed to search students.")
 
             return APIResponse.error(
                 "Unable to search students.",
@@ -540,9 +455,7 @@ class StudentService:
             )
 
     def count_students(self):
-
         try:
-
             total_students = self.repository.count_students()
 
             logger.info(
@@ -558,10 +471,7 @@ class StudentService:
             )
 
         except Exception as e:
-
-            logger.exception(
-                "Failed to count students."
-            )
+            logger.exception("Failed to count students.")
 
             return APIResponse.error(
                 "Unable to count students.",

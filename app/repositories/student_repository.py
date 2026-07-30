@@ -9,28 +9,23 @@ class StudentRepository:
     def __init__(self):
         self.collection = db.collection("students")
 
-
     def _student_query(self):
-        return self.collection.where(
-        "is_active",
-        "==",
-        True,
-    )
+        return self.collection.where("is_active", "==", True)
 
     def _student_to_dict(self, student):
         data = student.to_dict() or {}
         data["firebase_id"] = student.id
         return data
-    
+
     def _sort_students(self, students: list[dict]):
         students.sort(
-        key=lambda x: (
-            str(x.get("student_id", "")).upper(),
-            str(x.get("name", "")).upper(),
+            key=lambda x: (
+                str(x.get("student_id", "")).upper(),
+                str(x.get("name", "")).upper(),
+            )
         )
-    )
         return students
-    
+
     def _get_timestamp(self):
         return datetime.now(UTC).isoformat()
 
@@ -92,47 +87,46 @@ class StudentRepository:
             normalized["pending_fee"] = float(normalized["pending_fee"])
 
         return normalized
+
     def _prepare_student_data(self, student_data: dict) -> dict:
-            student_data = self._normalize_student_data(student_data)
+        student_data = self._normalize_student_data(student_data)
 
-            student_data.setdefault("is_active", True)
-            student_data.setdefault("pending_fee", 0.0)
-            student_data.setdefault("fee_status", "Pending")
-            student_data.setdefault("monthly_fee", 0.0)
-            student_data.setdefault("security_deposit", 0.0)
+        student_data.setdefault("is_active", True)
+        student_data.setdefault("pending_fee", 0.0)
+        student_data.setdefault("fee_status", "Pending")
+        student_data.setdefault("monthly_fee", 0.0)
+        student_data.setdefault("security_deposit", 0.0)
 
-            student_data.setdefault("room_firebase_id", None)
-            student_data.setdefault("room_number", None)
-            student_data.setdefault("floor", None)
-            student_data.setdefault("bed_number", None)
+        student_data.setdefault("room_firebase_id", None)
+        student_data.setdefault("room_number", None)
+        student_data.setdefault("floor", None)
+        student_data.setdefault("bed_number", None)
 
-            student_data["created_at"] = self._get_timestamp()
-            student_data["updated_at"] = self._get_timestamp()
+        student_data["created_at"] = self._get_timestamp()
+        student_data["updated_at"] = self._get_timestamp()
 
-            return student_data
-    
+        return student_data
+
     def _prepare_update_data(self, student_data: dict) -> dict:
-            student_data = self._normalize_student_data(student_data)
+        student_data = self._normalize_student_data(student_data)
 
-            student_data.pop("student_id", None)
-            student_data.pop("created_at", None)
-            student_data.pop("firebase_id", None)
+        student_data.pop("student_id", None)
+        student_data.pop("created_at", None)
+        student_data.pop("firebase_id", None)
 
-            student_data["updated_at"] = self._get_timestamp()
+        student_data["updated_at"] = self._get_timestamp()
 
-            return student_data
+        return student_data
 
     def create_student(self, student_data: dict):
         try:
             student_data = self._prepare_student_data(student_data)
-           
+
             student_ref = self.collection.document()
 
             student_ref.set(student_data)
 
-            logger.info(
-                f"Student created successfully | Firebase ID: {student_ref.id}"
-            )
+            logger.info(f"Student created successfully | Firebase ID: {student_ref.id}")
 
             return student_ref.id
 
@@ -147,12 +141,9 @@ class StudentRepository:
             if not student.exists:
                 return None
 
-            data = student.to_dict() or {}
-            data["firebase_id"] = student.id
+            data = self._student_to_dict(student)
 
-            logger.info(
-                f"Student retrieved successfully | Firebase ID: {firebase_id}"
-            )
+            logger.info(f"Student retrieved successfully | Firebase ID: {firebase_id}")
 
             return data
 
@@ -173,8 +164,7 @@ class StudentRepository:
             )
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
                 return data
 
             return None
@@ -196,8 +186,7 @@ class StudentRepository:
             )
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
                 return data
 
             return None
@@ -219,8 +208,7 @@ class StudentRepository:
             )
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
                 return data
 
             return None
@@ -242,8 +230,7 @@ class StudentRepository:
             )
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
                 return data
 
             return None
@@ -254,18 +241,12 @@ class StudentRepository:
 
     def get_all_students(self):
         try:
-            students = (
-                self.collection
-                .where("is_active", "==", True)
-                .stream()
-            )
+            students = self._student_query().stream()
 
             student_list = []
 
             for student in students:
-                data = student.to_dict()
-                data["firebase_id"] = student.id
-                student_list.append(data)
+                student_list.append(self._student_to_dict(student))
 
             student_list = self._sort_students(student_list)
 
@@ -285,12 +266,7 @@ class StudentRepository:
 
     def count_students(self):
         try:
-            return sum(
-                1
-                for _ in self.collection
-                .where("is_active", "==", True)
-                .stream()
-            )
+            return sum(1 for _ in self._student_query().stream())
 
         except Exception:
             logger.exception("Failed to count students")
@@ -313,9 +289,7 @@ class StudentRepository:
 
                 self.collection.document(student.id).update(student_data)
 
-                logger.info(
-                    f"Student updated successfully | Student ID: {student_id}"
-                )
+                logger.info(f"Student updated successfully | Student ID: {student_id}")
 
                 return True
 
@@ -329,16 +303,12 @@ class StudentRepository:
         try:
             keyword = str(keyword).strip().lower()
 
-            students = (
-                self.collection
-                .where("is_active", "==", True)
-                .stream()
-            )
+            students = self._student_query().stream()
 
             result = []
 
             for student in students:
-                data = student.to_dict() or {}
+                data = self._student_to_dict(student)
 
                 searchable_fields = [
                     str(data.get("student_id", "")).lower(),
@@ -349,15 +319,15 @@ class StudentRepository:
                     str(data.get("guardian_name", "")).lower(),
                     str(data.get("guardian_phone", "")).lower(),
                     str(data.get("room_number", "")).lower(),
-                    str(data.get("address","")).lower(),
-                    str(data.get("blood_group","")).lower(),
+                    str(data.get("address", "")).lower(),
+                    str(data.get("blood_group", "")).lower(),
                     str(data.get("bed_number", "")).lower(),
                     str(data.get("fee_status", "")).lower(),
                     str(data.get("status", "")).lower(),
                 ]
 
                 if any(keyword in field for field in searchable_fields):
-                    data["firebase_id"] = student.id
+                    
                     result.append(data)
 
             result = self._sort_students(result)
@@ -392,9 +362,7 @@ class StudentRepository:
                     }
                 )
 
-                logger.info(
-                    f"Student disabled successfully | Student ID: {student_id}"
-                )
+                logger.info(f"Student disabled successfully | Student ID: {student_id}")
 
                 return True
 
@@ -424,9 +392,7 @@ class StudentRepository:
                     }
                 )
 
-                logger.info(
-                    f"Student enabled successfully | Student ID: {student_id}"
-                )
+                logger.info(f"Student enabled successfully | Student ID: {student_id}")
 
                 return True
 
@@ -438,29 +404,16 @@ class StudentRepository:
 
     def get_active_students(self):
         try:
-            students = (
-                self.collection
-                .where("is_active", "==", True)
-                .stream()
-            )
+            students = self._student_query().stream()
 
             student_list = []
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
-                student_list.append(data)
+                student_list.append(self._student_to_dict(student))
 
-            student_list.sort(
-                key=lambda x: (
-                    str(x.get("student_id", "")).upper(),
-                    str(x.get("name", "")).upper(),
-                )
-            )
+            student_list = self._sort_students(student_list)
 
-            logger.info(
-                f"Fetched {len(student_list)} active students."
-            )
+            logger.info(f"Fetched {len(student_list)} active students.")
 
             return student_list
 
@@ -479,15 +432,12 @@ class StudentRepository:
             student_list = []
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
                 student_list.append(data)
 
             student_list = self._sort_students(student_list)
 
-            logger.info(
-                f"Fetched {len(student_list)} inactive students."
-            )
+            logger.info(f"Fetched {len(student_list)} inactive students.")
 
             return student_list
 
@@ -499,18 +449,13 @@ class StudentRepository:
         try:
             room_firebase_id = str(room_firebase_id).strip()
 
-            students = (
-                self.collection
-                .where("room_firebase_id", "==", room_firebase_id)
-                .where("is_active", "==", True)
-                .stream()
-            )
+            students = self._student_query().stream()
 
             student_list = []
 
             for student in students:
-                data = student.to_dict() or {}
-                data["firebase_id"] = student.id
+                data = self._student_to_dict(student)
+                
                 student_list.append(data)
 
             student_list.sort(
@@ -520,9 +465,7 @@ class StudentRepository:
                 )
             )
 
-            logger.info(
-                f"Fetched {len(student_list)} students for room {room_firebase_id}"
-            )
+            logger.info(f"Fetched {len(student_list)} students for room {room_firebase_id}")
 
             return student_list
 
@@ -532,16 +475,12 @@ class StudentRepository:
 
     def get_students_without_room(self):
         try:
-            students = (
-                self.collection
-                .where("is_active", "==", True)
-                .stream()
-            )
+            students = self._student_query().stream()
 
             student_list = []
 
             for student in students:
-                data = student.to_dict() or {}
+                data = self._student_to_dict(student)
 
                 room_id = data.get("room_firebase_id")
 
@@ -551,9 +490,7 @@ class StudentRepository:
 
             student_list = self._sort_students(student_list)
 
-            logger.info(
-                f"Fetched {len(student_list)} students without room allocation."
-            )
+            logger.info(f"Fetched {len(student_list)} students without room allocation.")
 
             return student_list
 
