@@ -1,34 +1,182 @@
+from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
 
-class FeeRecordCreate(BaseModel):
-    student_id: str = Field(..., min_length=1)
-    student_name: str = Field(..., min_length=1)
-    roll_number: str = Field(..., min_length=1)
-    room_number: str = Field(..., min_length=1)
-    block: str = Field(..., min_length=1)
-    amount: float = Field(..., ge=0)
-    month: str = Field(..., min_length=1)
-    due_date: str = Field(..., min_length=1)
-    status: str = "Pending"
-    payment_date: Optional[str] = None
+class FeeStatus(str, Enum):
+    PAID = "Paid"
+    PENDING = "Pending"
+    OVERDUE = "Overdue"
+
+class PaymentMethod(str, Enum):
+    CASH = "Cash"
+    BANK = "Bank"
+    JAZZCASH = "JazzCash"
+    EASYPAISA = "EasyPaisa"
+    OTHER = "Other"
+
+class FeeCreate(BaseModel):
+
+    model_config = ConfigDict(
+        extra="forbid"
+    )
+
+    student_id: str
+
+    month: str = Field(
+        ...,
+        examples=["2026-08"]
+    )
+
+    due_date: str = Field(
+        ...,
+        examples=["2026-08-10"]
+    )
+
+    notes: Optional[str] = Field(
+        default=None,
+        max_length=500,
+    )
+
+class FeeUpdate(BaseModel):
+
+    model_config = ConfigDict(
+        extra="forbid"
+    )
+
+    payment_method: Optional[PaymentMethod] = None
+
     transaction_id: Optional[str] = None
-    payment_method: Optional[str] = None
+
+    payment_date: Optional[str] = None
+
     notes: Optional[str] = None
 
+    status: Optional[FeeStatus] = None
 
-class FeeRecordUpdate(BaseModel):
-    student_id: Optional[str] = None
-    student_name: Optional[str] = None
-    roll_number: Optional[str] = None
+class FeeResponse(BaseModel):
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+    firebase_id: str
+
+    fee_id: str
+
+    student_id: str
+
+    student_name: str
+
     room_number: Optional[str] = None
+
     block: Optional[str] = None
-    amount: Optional[float] = None
-    month: Optional[str] = None
-    due_date: Optional[str] = None
-    status: Optional[str] = None
+
+    month: str
+
+    amount: float
+
+    due_date: str
+
     payment_date: Optional[str] = None
+
+    payment_method: Optional[PaymentMethod] = None
+
     transaction_id: Optional[str] = None
-    payment_method: Optional[str] = None
+
+    status: FeeStatus
+
     notes: Optional[str] = None
+
+    created_at: Optional[str] = None
+
+    updated_at: Optional[str] = None
+
+class FeeListData(BaseModel):
+
+    total_records: int
+
+    fees: list[FeeResponse]
+
+class FeeListResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeListData
+
+    errors: Optional[list] = None
+
+class FeeSingleResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeResponse
+
+    errors: Optional[list] = None
+
+class FeeCreateResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: dict[str, str]
+
+    errors: Optional[list] = None
+
+class FeeUpdateResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeResponse
+
+    errors: Optional[list] = None
+
+class FeeDeleteResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: Optional[dict[str, str]] = None
+
+    errors: Optional[list] = None
+
+class FeeDeleteResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: Optional[dict[str, str]] = None
+
+    errors: Optional[list] = None
+
+class FeeCountResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: dict[str, int]
+
+    errors: Optional[list] = None
+
+class FeeSearchResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeListData
+
+    errors: Optional[list] = None
+
