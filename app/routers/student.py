@@ -1,17 +1,13 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import status
-from fastapi import Query
+from fastapi import APIRouter, Depends, Query, status
+
 from app.dependencies.auth_dependency import get_current_admin
 
 from app.schemas.student_schema import (
     StudentCreate,
     StudentUpdate,
-
     StudentCreateResponse,
     StudentUpdateResponse,
     StudentDeleteResponse,
-
     StudentListResponse,
     StudentSingleResponse,
     StudentSearchResponse,
@@ -29,7 +25,7 @@ router = APIRouter(
 student_service = StudentService()
 
 
-# POST
+# ---------------- CREATE STUDENT ----------------
 @router.post(
     "/",
     response_model=StudentCreateResponse,
@@ -46,13 +42,13 @@ def create_student(
     )
 
 
-# GET ALL
+# ---------------- GET ALL STUDENTS ----------------
 @router.get(
     "/",
     response_model=StudentListResponse,
     status_code=status.HTTP_200_OK,
     summary="Get All Students",
-    description="Retrieve all students from the hostel.",
+    description="Retrieve all active students.",
 )
 def get_all_students(
     current_admin=Depends(get_current_admin),
@@ -60,34 +56,32 @@ def get_all_students(
     return student_service.get_all_students()
 
 
-# SEARCH
+# ---------------- SEARCH STUDENTS ----------------
 @router.get(
     "/search",
     response_model=StudentSearchResponse,
     status_code=status.HTTP_200_OK,
     summary="Search Students",
-    description="Search students by name, CNIC or phone number.",
+    description="Search students by ID, name, CNIC, phone, email, guardian, room etc.",
 )
 def search_students(
     keyword: str = Query(
         ...,
         min_length=1,
-        description="Enter name, CNIC or phone number",
+        description="Search keyword",
     ),
     current_admin=Depends(get_current_admin),
 ):
-    return student_service.search_students(
-        keyword
-    )
+    return student_service.search_students(keyword)
 
 
-# COUNT
+# ---------------- COUNT STUDENTS ----------------
 @router.get(
     "/count",
     response_model=StudentCountResponse,
     status_code=status.HTTP_200_OK,
     summary="Count Students",
-    description="Get the total number of registered students.",
+    description="Get total number of active students.",
 )
 def count_students(
     current_admin=Depends(get_current_admin),
@@ -95,30 +89,28 @@ def count_students(
     return student_service.count_students()
 
 
-# GET BY ID
+# ---------------- GET STUDENT ----------------
 @router.get(
     "/{student_id}",
     response_model=StudentSingleResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get Student By ID",
-    description="Retrieve a single student using the Student ID.",
+    summary="Get Student",
+    description="Retrieve a student by Student ID.",
 )
 def get_student_by_id(
     student_id: str,
     current_admin=Depends(get_current_admin),
 ):
-    return student_service.get_student_by_id(
-        student_id
-    )
+    return student_service.get_student_by_id(student_id)
 
 
-# UPDATE
+# ---------------- UPDATE STUDENT ----------------
 @router.put(
     "/{student_id}",
     response_model=StudentUpdateResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Student",
-    description="Update an existing student's information.",
+    description="Update an existing student.",
 )
 def update_student(
     student_id: str,
@@ -131,18 +123,16 @@ def update_student(
     )
 
 
-# DELETE
+# ---------------- DELETE (DISABLE) STUDENT ----------------
 @router.delete(
     "/{student_id}",
     response_model=StudentDeleteResponse,
     status_code=status.HTTP_200_OK,
-    summary="Delete Student",
-    description="Delete a student from the hostel.",
+    summary="Disable Student",
+    description="Soft delete (disable) a student.",
 )
 def delete_student(
     student_id: str,
     current_admin=Depends(get_current_admin),
 ):
-    return student_service.delete_student(
-        student_id
-    )
+    return student_service.delete_student(student_id)

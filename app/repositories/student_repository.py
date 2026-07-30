@@ -1,6 +1,7 @@
 from datetime import datetime, UTC
 
 from app.firebase.firebase import db
+from app.routers import student
 from app.utils.logger import logger
 
 
@@ -86,6 +87,46 @@ class StudentRepository:
         if "pending_fee" in normalized and normalized["pending_fee"] is not None:
             normalized["pending_fee"] = float(normalized["pending_fee"])
 
+        if "status" in normalized and normalized["status"]:
+            normalized["status"] = (
+                str(normalized["status"])
+                .strip()
+                .title()
+            )
+
+        if "remarks" in normalized and normalized["remarks"]:
+            normalized["remarks"] = (
+                str(normalized["remarks"])
+                .strip()
+            )
+
+        if "joining_date" in normalized and normalized["joining_date"]:
+            normalized["joining_date"] = (
+                str(normalized["joining_date"])
+                .strip()
+            )
+
+        if "block" in normalized and normalized["block"]:
+            normalized["block"] = (
+                str(normalized["block"])
+                .strip()
+                .upper()
+            )
+
+        if "room_type" in normalized and normalized["room_type"]:
+            normalized["room_type"] = (
+                str(normalized["room_type"])
+                .strip()
+                .title()
+            )
+
+        if "fee_status" in normalized and normalized["fee_status"]:
+            normalized["fee_status"] = (
+                str(normalized["fee_status"])
+                .strip()
+                .title()
+            )
+
         return normalized
 
     def _prepare_student_data(self, student_data: dict) -> dict:
@@ -102,8 +143,10 @@ class StudentRepository:
         student_data.setdefault("floor", None)
         student_data.setdefault("bed_number", None)
 
-        student_data["created_at"] = self._get_timestamp()
-        student_data["updated_at"] = self._get_timestamp()
+        timestamp = self._get_timestamp()
+
+        student_data["created_at"] = timestamp
+        student_data["updated_at"] = timestamp
 
         return student_data
 
@@ -301,7 +344,13 @@ class StudentRepository:
 
     def search_students(self, keyword: str):
         try:
+            if not keyword:
+                return []
+
             keyword = str(keyword).strip().lower()
+
+            if not keyword:
+                return []
 
             students = self._student_query().stream()
 
@@ -327,7 +376,6 @@ class StudentRepository:
                 ]
 
                 if any(keyword in field for field in searchable_fields):
-                    
                     result.append(data)
 
             result = self._sort_students(result)
@@ -455,8 +503,9 @@ class StudentRepository:
 
             for student in students:
                 data = self._student_to_dict(student)
-                
-                student_list.append(data)
+
+                if data.get("room_firebase_id") == room_firebase_id:
+                    student_list.append(data)
 
             student_list.sort(
                 key=lambda x: (

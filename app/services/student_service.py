@@ -28,16 +28,28 @@ class StudentService:
                 "phone": personal.get("phone"),
                 "email": personal.get("email"),
                 "blood_group": personal.get("bloodGroup"),
+                "profile_image": personal.get("profileImage"),
+                "cnic_front_image": personal.get("cnicFrontImage"),
+                "cnic_back_image": personal.get("cnicBackImage"),
 
                 "guardian_name": guardian.get("name"),
                 "guardian_phone": guardian.get("phone"),
                 "guardian_cnic": guardian.get("cnic"),
+                "address": personal.get("address"),
+                "relation": guardian.get("relation"),
 
                 "block": allocation.get("block"),
                 "room_type": allocation.get("roomType"),
+                "room_firebase_id": allocation.get("roomFirebaseId"),
+                "floor": allocation.get("floor"),
+                "joining_date": allocation.get("joiningDate"),
+                "remarks": allocation.get("remarks"),
 
                 "room_number": allocation.get("roomNumber"),
                 "bed_number": allocation.get("bedNumber"),
+
+                "monthly_fee": allocation.get("monthlyFee"),
+                "security_deposit": allocation.get("securityDeposit"),
 
                 "status": student_data.get("status", "Active"),
             }
@@ -49,16 +61,29 @@ class StudentService:
             "phone": student_data.get("phone"),
             "email": student_data.get("email"),
             "blood_group": student_data.get("blood_group"),
+            "address": student_data.get("address"),
+            "profile_image": student_data.get("profile_image"),
+            "cnic_front_image": student_data.get("cnic_front_image"),
+            "cnic_back_image": student_data.get("cnic_back_image"),
             "guardian_name": (
                 student_data.get("guardian_name")
                 or student_data.get("father_name")
             ),
+            "relation": student_data.get("relation"),
             "guardian_phone": student_data.get("guardian_phone"),
             "guardian_cnic": student_data.get("guardian_cnic"),
             "block": student_data.get("block"),
             "room_type": student_data.get("room_type"),
             "room_number": student_data.get("room_number"),
             "bed_number": student_data.get("bed_number"),
+            "room_firebase_id": student_data.get("room_firebase_id"),
+            "floor": student_data.get("floor"),
+
+            "joining_date": student_data.get("joining_date"),
+            "remarks": student_data.get("remarks"),
+
+            "monthly_fee": student_data.get("monthly_fee"),
+            "security_deposit": student_data.get("security_deposit"),
             "status": student_data.get("status", "Active"),
         }
 
@@ -74,17 +99,25 @@ class StudentService:
             "cnic": student.get("cnic", ""),
             "phone": student.get("phone", ""),
             "email": student.get("email", ""),
+            "address": student.get("address"),
+            "profile_image": student.get("profile_image"),
+            "cnic_front_image": student.get("cnic_front_image"),
+            "cnic_back_image": student.get("cnic_back_image"),
 
             "guardian_name": student.get("guardian_name"),
             "guardian_phone": student.get("guardian_phone"),
             "guardian_cnic": student.get("guardian_cnic"),
+            "relation": student.get("relation"),
 
             "block": student.get("block"),
             "room_type": student.get("room_type"),
+            "room_firebase_id": student.get("room_firebase_id"),
+            "floor": student.get("floor"),
 
             "blood_group": student.get("blood_group"),
-
+            "joining_date": student.get("joining_date"),
             "status": student.get("status", "Active"),
+            "remarks": student.get("remarks"),
 
             "room_number": student.get("room_number"),
             "bed_number": student.get("bed_number"),
@@ -111,6 +144,12 @@ class StudentService:
         try:
             normalized_student = self._normalize_student_data(student_data)
 
+            if not normalized_student.get("name"):
+                return APIResponse.error("Student name is required.")
+
+            if not normalized_student.get("cnic"):
+                return APIResponse.error("CNIC is required.")
+
             existing_student = self.repository.get_student_by_cnic(
                 normalized_student.get("cnic", "")
             )
@@ -124,6 +163,9 @@ class StudentService:
                 return APIResponse.error(
                     "Student with this CNIC already exists."
                 )
+
+            if not normalized_student.get("phone"):
+                return APIResponse.error("Phone number is required.")
 
             existing_phone = self.repository.get_student_by_phone(
                 normalized_student.get("phone", "")
@@ -139,7 +181,27 @@ class StudentService:
                     "Phone number already exists."
                 )
 
-            email = normalized_student.get("email")
+            if not normalized_student.get("guardian_name"):
+                return APIResponse.error(
+                    "Guardian name is required."
+                )
+
+            if not normalized_student.get("guardian_phone"):
+                return APIResponse.error(
+                    "Guardian phone is required."
+                )
+
+            if not normalized_student.get("guardian_cnic"):
+                return APIResponse.error(
+                    "Guardian CNIC is required."
+                )
+
+            if not normalized_student.get("address"):
+                return APIResponse.error(
+                    "Address is required."
+                )
+
+            email = (normalized_student.get("email") or "").strip()
 
             if email:
                 existing_email = self.repository.get_student_by_email(email)
@@ -279,6 +341,18 @@ class StudentService:
                 if "bloodGroup" in personal:
                     update_data["blood_group"] = personal["bloodGroup"]
 
+                if "address" in personal:
+                    update_data["address"] = personal["address"]
+
+                if "profileImage" in personal:
+                    update_data["profile_image"] = personal["profileImage"]
+
+                if "cnicFrontImage" in personal:
+                    update_data["cnic_front_image"] = personal["cnicFrontImage"]
+
+                if "cnicBackImage" in personal:
+                    update_data["cnic_back_image"] = personal["cnicBackImage"]
+
             if "guardian" in student_data:
                 guardian = student_data["guardian"]
 
@@ -290,6 +364,9 @@ class StudentService:
 
                 if "cnic" in guardian:
                     update_data["guardian_cnic"] = guardian["cnic"]
+
+                if "relation" in guardian:
+                    update_data["relation"] = guardian["relation"]
 
             if "allocation" in student_data:
                 allocation = student_data["allocation"]
@@ -305,6 +382,24 @@ class StudentService:
 
                 if "bedNumber" in allocation:
                     update_data["bed_number"] = allocation["bedNumber"]
+
+                if "roomFirebaseId" in allocation:
+                    update_data["room_firebase_id"] = allocation["roomFirebaseId"]
+
+                if "floor" in allocation:
+                    update_data["floor"] = allocation["floor"]
+
+                if "joiningDate" in allocation:
+                    update_data["joining_date"] = allocation["joiningDate"]
+
+                if "remarks" in allocation:
+                    update_data["remarks"] = allocation["remarks"]
+
+                if "monthlyFee" in allocation:
+                    update_data["monthly_fee"] = allocation["monthlyFee"]
+
+                if "securityDeposit" in allocation:
+                    update_data["security_deposit"] = allocation["securityDeposit"]
 
             if "status" in student_data:
                 update_data["status"] = student_data["status"]
@@ -336,17 +431,22 @@ class StudentService:
                     )
 
             if (
-                    update_data.get("email")
-                    and update_data["email"] != student.get("email")
+                update_data.get("email")
+                and update_data["email"] != student.get("email")
             ):
-                    existing_email = self.repository.get_student_by_email(
+                existing_email = self.repository.get_student_by_email(
                     update_data["email"]
-    )
+                )
 
-                    if existing_email:
-                     return APIResponse.error(
-                    "Email already exists."
+                if existing_email:
+                    return APIResponse.error(
+                        "Email already exists."
                     )
+
+            if not update_data:
+                return APIResponse.error(
+                    "No data provided for update."
+                )
 
             updated = self.repository.update_student(student_id, update_data)
 
@@ -384,6 +484,8 @@ class StudentService:
 
     def delete_student(self, student_id: str):
         try:
+            student_id = str(student_id).strip().upper()
+
             if not self.repository.student_exists(student_id):
                 logger.warning(
                     "Student not found for deletion | "

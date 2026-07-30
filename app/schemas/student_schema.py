@@ -184,7 +184,11 @@ class StudentUpdate(BaseModel):
         extra="forbid"
     )
 
-    personal: Optional[StudentPersonal] = None
+    personal: Optional[StudentPersonalUpdate]
+
+    guardian: Optional[StudentGuardianUpdate]
+    
+    allocation: Optional[StudentAllocationUpdate]
 
     guardian: Optional[StudentGuardian] = None
 
