@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-
 from app.firebase.firebase import db
 from app.utils.logger import logger
 
@@ -27,10 +26,7 @@ class FeeRepository:
     def _sort_fees(self, fee_list):
         return sorted(
             fee_list,
-            key=lambda x: (
-                str(x.get("year", "")),
-                str(x.get("month", "")),
-            ),
+            key=lambda x: str(x.get("created_at", "")),
             reverse=True,
         )
 
@@ -50,6 +46,7 @@ class FeeRepository:
         fee.setdefault("student_firebase_id", None)
         fee.setdefault("receipt_no", None)
         fee.setdefault("is_late", False)
+        fee.setdefault("due_date", None)
 
         fee["is_active"] = True
 
@@ -63,8 +60,12 @@ class FeeRepository:
     def _prepare_update_data(self, fee_data: dict):
         fee = dict(fee_data)
 
+        # Immutable fields — never allowed through a generic update.
         fee.pop("firebase_id", None)
         fee.pop("created_at", None)
+        fee.pop("receipt_no", None)
+        fee.pop("student_id", None)
+        fee.pop("student_firebase_id", None)
 
         fee["updated_at"] = self._timestamp()
 
@@ -168,6 +169,35 @@ class FeeRepository:
             )
             raise
 
+    def get_fee_by_status(self, status: str):
+        try:
+            status = str(status).strip().title()
+
+            fees = (
+                self._fee_query()
+                .where("status", "==", status)
+                .stream()
+            )
+
+            fee_list = [
+                self._fee_to_dict(fee)
+                for fee in fees
+            ]
+
+            fee_list = self._sort_fees(fee_list)
+
+            logger.info(
+                f"Fetched {len(fee_list)} fee records | Status: {status}"
+            )
+
+            return fee_list
+
+        except Exception:
+            logger.exception(
+                "Failed to retrieve fee records by status."
+            )
+            raise
+
     def get_all_fee_records(self):
         try:
             fees = self._fee_query().stream()
@@ -211,7 +241,6 @@ class FeeRepository:
             )
             raise
 
-   
     def get_pending_fee_records(self):
         try:
             fees = (
@@ -270,6 +299,145 @@ class FeeRepository:
             )
             raise
 
+    def get_overdue_fee_records(self):
+        """
+        Fee records that are still Pending and whose due_date has
+        already passed. due_date is stored as an ISO string
+        (YYYY-MM-DD or full ISO timestamp), so a plain string
+        comparison against today's ISO date works directly.
+        """
+        try:
+            today = datetime.now(UTC).date().isoformat()
+
+            fees = (
+                self._fee_query()
+                .where("status", "==", "Pending")
+                .stream()
+            )
+
+            fee_list = []
+
+            for fee in fees:
+                data = self._fee_to_dict(fee)
+
+                due_date = data.get("due_date")
+
+                if not due_date:
+                    continue
+
+                # Compare only the date portion in case due_date
+                # is stored as a full ISO timestamp.
+                due_date_only = str(due_date)[:10]
+
+                if due_date_only < today:
+                    fee_list.append(data)
+
+            fee_list = self._sort_fees(fee_list)
+
+            logger.info(
+                f"Fetched {len(fee_list)} overdue fee records."
+            )
+
+            return fee_list
+
+        except Exception:
+            logger.exception(
+                "Failed to retrieve overdue fee records."
+            )
+            raise
+
+    def get_fee_statistics(self):
+        """
+        Aggregate numbers for a dashboard: counts and amounts
+        across all active fee records.
+
+        collected_amount = amount + late_fee - discount, for Paid fees.
+        pending_amount = remaining_amount (falls back to amount if
+        remaining_amount isn't set), for Pending fees.
+        """
+        try:
+            fees = self._fee_query().stream()
+
+            total_fees = 0
+            pending_count = 0
+            paid_count = 0
+            collected_amount = 0.0
+            pending_amount = 0.0
+            total_late_fee = 0.0
+
+            for fee in fees:
+                data = self._fee_to_dict(fee)
+
+                total_fees += 1
+
+                amount = float(data.get("amount", 0) or 0)
+                remaining = float(data.get("remaining_amount", 0) or 0)
+                late_fee = float(data.get("late_fee", 0) or 0)
+                discount = float(data.get("discount", 0) or 0)
+                status = data.get("status")
+
+                total_late_fee += late_fee
+
+                if status == "Paid":
+                    paid_count += 1
+                    collected_amount += (amount + late_fee - discount)
+                elif status == "Pending":
+                    pending_count += 1
+                    pending_amount += remaining if remaining > 0 else amount
+
+            stats = {
+                "total_fees": total_fees,
+                "pending_count": pending_count,
+                "paid_count": paid_count,
+                "collected_amount": collected_amount,
+                "pending_amount": pending_amount,
+                "total_late_fee": total_late_fee,
+            }
+
+            logger.info(
+                f"Fee statistics computed successfully | {stats}"
+            )
+
+            return stats
+
+        except Exception:
+            logger.exception(
+                "Failed to compute fee statistics."
+            )
+            raise
+
+    def get_latest_fee(self, student_id: str):
+        """
+        Most recent fee record for a student, by created_at.
+        """
+        try:
+            student_id = str(student_id).strip().upper()
+
+            fees = (
+                self._fee_query()
+                .where("student_id", "==", student_id)
+                .stream()
+            )
+
+            fee_list = [self._fee_to_dict(fee) for fee in fees]
+
+            if not fee_list:
+                return None
+
+            fee_list = self._sort_fees(fee_list)
+
+            logger.info(
+                f"Latest fee record retrieved successfully | Student ID: {student_id}"
+            )
+
+            return fee_list[0]
+
+        except Exception:
+            logger.exception(
+                "Failed to retrieve latest fee record."
+            )
+            raise
+
     def update_fee_record(self, firebase_id: str, fee_data: dict):
         try:
             firebase_id = str(firebase_id).strip()
@@ -312,12 +480,14 @@ class FeeRepository:
                 return False
 
             update_data = {
-                
                 "status": "Paid",
+                "is_active": True,
+                "is_late": False,
                 "payment_date": payment_date,
                 "payment_method": payment_method,
                 "transaction_id": transaction_id,
                 "remaining_amount": 0.0,
+                "approved_by": approved_by,
                 "approved_at": self._timestamp(),
                 "updated_at": self._timestamp(),
             }
@@ -367,8 +537,6 @@ class FeeRepository:
                     str(data.get("status", "")).lower(),
                     str(data.get("payment_method", "")).lower(),
                     str(data.get("transaction_id", "")).lower(),
-                    str(data.get("guardian_name", "")).lower(),
-                    str(data.get("receipt_no", "")).lower(),
                     str(data.get("due_date", "")).lower(),
                     str(data.get("payment_date", "")).lower(),
                     str(data.get("student_firebase_id", "")).lower(),
@@ -483,22 +651,23 @@ class FeeRepository:
                 "Failed to retrieve fee record by Student ID, Month, and Year."
             )
             raise
-    def fee_exists(
-                self,
-                student_id: str,
-                month: str,
-                year: int,
-                ):
-        try:
-               return (
-            self.get_fee_by_student_month_year(
-                student_id,
-                month,
-                year,
-            )
-            is not None
-        )
 
-            except Exception:
+    def fee_exists(
+        self,
+        student_id: str,
+        month: str,
+        year: int,
+    ):
+        try:
+            return (
+                self.get_fee_by_student_month_year(
+                    student_id,
+                    month,
+                    year,
+                )
+                is not None
+            )
+
+        except Exception:
             logger.exception("Failed to check fee existence.")
             raise

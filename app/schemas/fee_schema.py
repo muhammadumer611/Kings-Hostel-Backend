@@ -5,10 +5,12 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
+
 class FeeStatus(str, Enum):
     PAID = "Paid"
     PENDING = "Pending"
     OVERDUE = "Overdue"
+
 
 class PaymentMethod(str, Enum):
     CASH = "Cash"
@@ -16,6 +18,7 @@ class PaymentMethod(str, Enum):
     JAZZCASH = "JazzCash"
     EASYPAISA = "EasyPaisa"
     OTHER = "Other"
+
 
 class FeeCreate(BaseModel):
 
@@ -39,6 +42,11 @@ class FeeCreate(BaseModel):
         default=None,
         max_length=500,
     )
+    year: int = Field(
+        ...,
+        examples=[2026]
+    )
+
 
 class FeeUpdate(BaseModel):
 
@@ -56,6 +64,7 @@ class FeeUpdate(BaseModel):
 
     status: Optional[FeeStatus] = None
 
+
 class FeeResponse(BaseModel):
 
     model_config = ConfigDict(
@@ -64,7 +73,6 @@ class FeeResponse(BaseModel):
 
     firebase_id: str
 
-    fee_id: str
 
     student_id: str
 
@@ -76,7 +84,7 @@ class FeeResponse(BaseModel):
 
     month: str
 
-    amount: float
+    amount: float = 0.0
 
     due_date: str
 
@@ -94,11 +102,29 @@ class FeeResponse(BaseModel):
 
     updated_at: Optional[str] = None
 
+    discount: float = 0.0
+
+    late_fee: float =0.0
+
+    remaining_amount: float =0.0
+
+    receipt_no: Optional[str] = None
+
+    student_firebase_id: Optional[str] = None
+
+    approved_by: Optional[str] = None
+
+    approved_at: Optional[str] = None
+
+    is_late: bool = False
+
+
 class FeeListData(BaseModel):
 
     total_records: int
 
-    fees: list[FeeResponse]
+    fee_records: list[FeeResponse]
+
 
 class FeeListResponse(BaseModel):
 
@@ -110,6 +136,7 @@ class FeeListResponse(BaseModel):
 
     errors: Optional[list] = None
 
+
 class FeeSingleResponse(BaseModel):
 
     success: bool
@@ -119,6 +146,7 @@ class FeeSingleResponse(BaseModel):
     data: FeeResponse
 
     errors: Optional[list] = None
+
 
 class FeeCreateResponse(BaseModel):
 
@@ -130,6 +158,7 @@ class FeeCreateResponse(BaseModel):
 
     errors: Optional[list] = None
 
+
 class FeeUpdateResponse(BaseModel):
 
     success: bool
@@ -140,6 +169,52 @@ class FeeUpdateResponse(BaseModel):
 
     errors: Optional[list] = None
 
+
+class ReceiptSearchRequest(BaseModel):
+
+    receipt_no: str
+
+
+class StudentFeeRequest(BaseModel):
+
+    student_id: str
+
+
+class StudentMonthFeeRequest(BaseModel):
+
+    student_id: str
+
+    month: str
+
+    year: int
+
+
+class FeeDashboardResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeStatisticsData
+
+    errors: Optional[list] = None
+
+
+class FeeApproveRequest(BaseModel):
+
+    model_config = ConfigDict(
+        extra="forbid"
+    )
+
+    payment_date: str
+
+    payment_method: PaymentMethod
+
+    approved_by: str
+
+    transaction_id: Optional[str] = None
+
+
 class FeeDeleteResponse(BaseModel):
 
     success: bool
@@ -150,7 +225,8 @@ class FeeDeleteResponse(BaseModel):
 
     errors: Optional[list] = None
 
-class FeeDeleteResponse(BaseModel):
+
+class FeeEnableResponse(BaseModel):
 
     success: bool
 
@@ -159,6 +235,18 @@ class FeeDeleteResponse(BaseModel):
     data: Optional[dict[str, str]] = None
 
     errors: Optional[list] = None
+
+
+class FeeDisableResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: Optional[dict[str, str]] = None
+
+    errors: Optional[list] = None
+
 
 class FeeCountResponse(BaseModel):
 
@@ -170,6 +258,33 @@ class FeeCountResponse(BaseModel):
 
     errors: Optional[list] = None
 
+
+class FeeStatisticsData(BaseModel):
+
+    total_fees: int
+
+    pending_count: int
+
+    paid_count: int
+
+    collected_amount: float
+
+    pending_amount: float
+
+    total_late_fee: float
+
+
+class FeeStatisticsResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeStatisticsData
+
+    errors: Optional[list] = None
+
+
 class FeeSearchResponse(BaseModel):
 
     success: bool
@@ -179,4 +294,3 @@ class FeeSearchResponse(BaseModel):
     data: FeeListData
 
     errors: Optional[list] = None
-
