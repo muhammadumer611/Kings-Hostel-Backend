@@ -88,44 +88,22 @@ class StudentRepository:
             normalized["pending_fee"] = float(normalized["pending_fee"])
 
         if "status" in normalized and normalized["status"]:
-            normalized["status"] = (
-                str(normalized["status"])
-                .strip()
-                .title()
-            )
+            normalized["status"] = str(normalized["status"]).strip().title()
 
         if "remarks" in normalized and normalized["remarks"]:
-            normalized["remarks"] = (
-                str(normalized["remarks"])
-                .strip()
-            )
+            normalized["remarks"] = str(normalized["remarks"]).strip()
 
         if "joining_date" in normalized and normalized["joining_date"]:
-            normalized["joining_date"] = (
-                str(normalized["joining_date"])
-                .strip()
-            )
+            normalized["joining_date"] = str(normalized["joining_date"]).strip()
 
         if "block" in normalized and normalized["block"]:
-            normalized["block"] = (
-                str(normalized["block"])
-                .strip()
-                .upper()
-            )
+            normalized["block"] = str(normalized["block"]).strip().upper()
 
         if "room_type" in normalized and normalized["room_type"]:
-            normalized["room_type"] = (
-                str(normalized["room_type"])
-                .strip()
-                .title()
-            )
+            normalized["room_type"] = str(normalized["room_type"]).strip().title()
 
         if "fee_status" in normalized and normalized["fee_status"]:
-            normalized["fee_status"] = (
-                str(normalized["fee_status"])
-                .strip()
-                .title()
-            )
+            normalized["fee_status"] = str(normalized["fee_status"]).strip().title()
 
         return normalized
 
@@ -545,4 +523,48 @@ class StudentRepository:
 
         except Exception:
             logger.exception("Failed to fetch students without room.")
+            raise
+
+    def get_student_statistics(self):
+        try:
+            students = self._student_query().stream()
+
+            stats = {
+                "total_students": 0,
+                "active_students": 0,
+                "inactive_students": 0,
+                "students_with_room": 0,
+                "students_without_room": 0,
+                "fee_paid": 0,
+                "fee_pending": 0,
+            }
+
+            for student in students:
+                data = self._student_to_dict(student)
+
+                stats["total_students"] += 1
+
+                if data.get("is_active", True):
+                    stats["active_students"] += 1
+                else:
+                    stats["inactive_students"] += 1
+
+                if data.get("room_firebase_id"):
+                    stats["students_with_room"] += 1
+                else:
+                    stats["students_without_room"] += 1
+
+                fee_status = str(data.get("fee_status", "")).strip().title()
+
+                if fee_status == "Paid":
+                    stats["fee_paid"] += 1
+                else:
+                    stats["fee_pending"] += 1
+
+            logger.info(f"Student statistics generated successfully | {stats}")
+
+            return stats
+
+        except Exception:
+            logger.exception("Failed to generate student statistics.")
             raise

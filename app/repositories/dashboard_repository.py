@@ -1,23 +1,109 @@
 from app.firebase.firebase import db
 
+from app.repositories.student_repository import StudentRepository
+from app.repositories.room_repository import RoomRepository
+from app.repositories.fee_repository import FeeRepository
+from app.repositories.complaint_repository import ComplaintRepository
+
+from app.utils.logger import logger
+
 
 class DashboardRepository:
-    def get_students(self):
-        students = db.collection("students").stream()
-        return [student.to_dict() for student in students]
 
-    def get_rooms(self):
-        rooms = db.collection("rooms").stream()
-        return [room.to_dict() for room in rooms]
+    def __init__(self):
 
-    def get_fee_records(self):
-        fees = db.collection("fees").stream()
-        return [fee.to_dict() for fee in fees]
+        self.student_repo = StudentRepository()
+        self.room_repo = RoomRepository()
+        self.fee_repo = FeeRepository()
+        self.complaint_repo = ComplaintRepository()
 
-    def get_complaints(self):
-        complaints = db.collection("complaints").stream()
-        return [complaint.to_dict() for complaint in complaints]
+        self.activity_collection = db.collection("activity_logs")
 
-    def get_activity_logs(self):
-        logs = db.collection("activity_logs").stream()
-        return [log.to_dict() for log in logs]
+    # ==========================
+    # Statistics
+    # ==========================
+
+    def get_student_statistics(self):
+        return self.student_repo.get_student_statistics()
+
+    def get_room_statistics(self):
+        return self.room_repo.get_room_statistics()
+
+    def get_fee_statistics(self):
+        return self.fee_repo.get_fee_statistics()
+
+    def get_complaint_statistics(self):
+        return self.complaint_repo.get_complaint_statistics()
+
+    # ==========================
+    # Recent Data
+    # ==========================
+
+    def get_recent_students(self, limit=5):
+
+        students = self.student_repo.get_all_students()
+
+        return students[:limit]
+
+    def get_recent_fee_records(self, limit=5):
+
+        fees = self.fee_repo.get_all_fee_records()
+
+        return fees[:limit]
+
+    def get_recent_complaints(self, limit=5):
+
+        complaints = self.complaint_repo.get_all_complaints()
+
+        return complaints[:limit]
+
+    # ==========================
+    # Extra Dashboard Widgets
+    # ==========================
+
+    def get_available_rooms(self):
+
+        return self.room_repo.get_available_rooms()
+
+    def get_pending_fee_records(self):
+
+        return self.fee_repo.get_pending_fee_records()
+
+    def get_overdue_fee_records(self):
+
+        return self.fee_repo.get_overdue_fee_records()
+
+    # ==========================
+    # Activity Logs
+    # ==========================
+
+    def get_recent_activity_logs(self, limit=10):
+
+        try:
+
+            logs = (
+                self.activity_collection
+                .order_by("created_at", direction="DESCENDING")
+                .limit(limit)
+                .stream()
+            )
+
+            result = []
+
+            for log in logs:
+
+                data = log.to_dict() or {}
+
+                data["firebase_id"] = log.id
+
+                result.append(data)
+
+            return result
+
+        except Exception:
+
+            logger.exception(
+                "Failed to fetch activity logs."
+            )
+
+            return []

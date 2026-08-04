@@ -523,3 +523,36 @@ class RoomRepository:
         except Exception:
             logger.exception("Failed to retrieve rooms with available beds.")
             raise
+    def get_room_statistics(self):
+
+        rooms = self.get_all_rooms()
+
+        total_rooms = len(rooms)
+
+        available_rooms = 0
+        occupied_rooms = 0
+
+        total_beds = 0
+        occupied_beds = 0
+        available_beds = 0
+
+        for room in rooms:
+
+            total_beds += room.get("total_beds", 0)
+            occupied_beds += room.get("occupied_beds", 0)
+            available_beds += room.get("available_beds", 0)
+
+        if room.get("status") == "Available":
+            available_rooms += 1
+
+        if room.get("occupied_beds", 0) > 0:
+            occupied_rooms += 1
+
+        return {
+            "total_rooms": total_rooms,
+            "available_rooms": available_rooms,
+            "occupied_rooms": occupied_rooms,
+            "total_beds": total_beds,
+            "occupied_beds": occupied_beds,
+            "available_beds": available_beds,
+    }
