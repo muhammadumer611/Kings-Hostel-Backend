@@ -189,7 +189,33 @@ class StudentMonthFeeRequest(BaseModel):
     year: int
 
 
+class FeeStatisticsData(BaseModel):
+
+    total_fees: int
+
+    pending_count: int
+
+    paid_count: int
+
+    collected_amount: float
+
+    pending_amount: float
+
+    total_late_fee: float
+
+
 class FeeDashboardResponse(BaseModel):
+
+    success: bool
+
+    message: str
+
+    data: FeeStatisticsData
+
+    errors: Optional[list] = None
+
+
+class FeeStatisticsResponse(BaseModel):
 
     success: bool
 
@@ -255,32 +281,6 @@ class FeeCountResponse(BaseModel):
     message: str
 
     data: dict[str, int]
-
-    errors: Optional[list] = None
-
-
-class FeeStatisticsData(BaseModel):
-
-    total_fees: int
-
-    pending_count: int
-
-    paid_count: int
-
-    collected_amount: float
-
-    pending_amount: float
-
-    total_late_fee: float
-
-
-class FeeStatisticsResponse(BaseModel):
-
-    success: bool
-
-    message: str
-
-    data: FeeStatisticsData
 
     errors: Optional[list] = None
 

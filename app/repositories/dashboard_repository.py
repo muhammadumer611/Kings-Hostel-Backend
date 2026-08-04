@@ -3,7 +3,6 @@ from app.firebase.firebase import db
 from app.repositories.student_repository import StudentRepository
 from app.repositories.room_repository import RoomRepository
 from app.repositories.fee_repository import FeeRepository
-from app.repositories.complaint_repository import ComplaintRepository
 
 from app.utils.logger import logger
 
@@ -15,7 +14,6 @@ class DashboardRepository:
         self.student_repo = StudentRepository()
         self.room_repo = RoomRepository()
         self.fee_repo = FeeRepository()
-        self.complaint_repo = ComplaintRepository()
 
         self.activity_collection = db.collection("activity_logs")
 
@@ -32,8 +30,7 @@ class DashboardRepository:
     def get_fee_statistics(self):
         return self.fee_repo.get_fee_statistics()
 
-    def get_complaint_statistics(self):
-        return self.complaint_repo.get_complaint_statistics()
+   
 
     # ==========================
     # Recent Data
@@ -51,11 +48,7 @@ class DashboardRepository:
 
         return fees[:limit]
 
-    def get_recent_complaints(self, limit=5):
-
-        complaints = self.complaint_repo.get_all_complaints()
-
-        return complaints[:limit]
+   
 
     # ==========================
     # Extra Dashboard Widgets
