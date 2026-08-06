@@ -31,18 +31,17 @@ class FeeStatisticsSchema(BaseModel):
     total_late_fee: float
 
 
-class ComplaintStatisticsSchema(BaseModel):
-    total_complaints: int
-    pending_complaints: int
-    resolved_complaints: int
-    in_progress_complaints: int
+# class ComplaintStatisticsSchema(BaseModel):
+#     total_complaints: int
+#     pending_complaints: int
+#     resolved_complaints: int
+#     in_progress_complaints: int
 
 
 class DashboardOverviewSchema(BaseModel):
     students: StudentStatisticsSchema
     rooms: RoomStatisticsSchema
     fees: FeeStatisticsSchema
-    complaints: ComplaintStatisticsSchema
 
 
 class DashboardDataSchema(BaseModel):

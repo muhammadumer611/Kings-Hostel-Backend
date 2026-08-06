@@ -108,6 +108,42 @@ class AuthService:
                 str(e),
             )
 
+    def swagger_login(
+        self,
+        email: str,
+        password: str,
+    ):
+        try:
+            admin = self.repository.verify_admin(email)
+
+            if not admin:
+                return APIResponse.error("Invalid email.")
+
+            # Temporary password check
+            if email != settings.ADMIN_EMAIL or password != settings.ADMIN_PASSWORD:
+                return APIResponse.error("Invalid password.")
+
+            token = create_access_token(
+                {
+                    "sub": admin["email"],
+                    "uid": admin["uid"],
+                    "role": admin["role"],
+                }
+            )
+
+            return APIResponse.success(
+                "Login successful.",
+                {
+                    "access_token": token,
+                    "token_type": "bearer",
+                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                },
+            )
+
+        except Exception as e:
+            logger.exception("Swagger login failed.")
+            return APIResponse.error("Login failed.", str(e))
+
     def get_profile(
         self,
         uid: str,

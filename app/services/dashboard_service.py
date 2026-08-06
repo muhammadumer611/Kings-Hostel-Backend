@@ -34,12 +34,18 @@ class DashboardService:
            
 
             dashboard_data = {
+                         "overview": {
+                         "students": student_stats,
+                         "rooms": room_stats,
+                         "fees": fee_stats,
+                     },
+
                 "recent_students": recent_students,
                 "recent_fee_records": recent_fee_records,
                 "recent_activity_logs": recent_activity_logs,
                 "available_rooms": available_rooms,
                 "pending_fee_records": pending_fee_records,
-                "overdue_fee_records": overdue_fee_records,
+                 "overdue_fee_records": overdue_fee_records,
             }
 
             logger.info("Dashboard summary generated successfully.")

@@ -102,3 +102,9 @@ class ForgotPasswordRequest(BaseModel):
     )
 
     email: EmailStr
+
+
+
+class SwaggerLoginRequest(BaseModel):
+    email: EmailStr
+    password: str

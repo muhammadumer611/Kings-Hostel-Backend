@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.dependencies.auth_dependency import get_current_admin
 
@@ -32,13 +32,16 @@ student_service = StudentService()
     status_code=status.HTTP_201_CREATED,
     summary="Create Student",
     description="Create a new hostel student.",
+    responses={
+        400: {"description": "Validation Error"},
+    },
 )
 def create_student(
     student: StudentCreate,
     current_admin=Depends(get_current_admin),
 ):
     return student_service.create_student(
-        student.model_dump()
+        student.model_dump(exclude_none=True)
     )
 
 
@@ -68,6 +71,7 @@ def search_students(
     keyword: str = Query(
         ...,
         min_length=1,
+        max_length=100,
         description="Search keyword",
     ),
     current_admin=Depends(get_current_admin),
@@ -96,9 +100,16 @@ def count_students(
     status_code=status.HTTP_200_OK,
     summary="Get Student",
     description="Retrieve a student by Student ID.",
+    responses={
+        404: {"description": "Student Not Found"},
+    },
 )
 def get_student_by_id(
-    student_id: str,
+    student_id: str = Path(
+        ...,
+        min_length=4,
+        max_length=30,
+    ),
     current_admin=Depends(get_current_admin),
 ):
     return student_service.get_student_by_id(student_id)
@@ -111,15 +122,26 @@ def get_student_by_id(
     status_code=status.HTTP_200_OK,
     summary="Update Student",
     description="Update an existing student.",
+    responses={
+        404: {"description": "Student Not Found"},
+        400: {"description": "Validation Error"},
+    },
 )
 def update_student(
-    student_id: str,
     student: StudentUpdate,
+    student_id: str = Path(
+        ...,
+        min_length=4,
+        max_length=30,
+    ),
     current_admin=Depends(get_current_admin),
 ):
     return student_service.update_student(
         student_id,
-        student.model_dump(exclude_unset=True),
+        student.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
+        ),
     )
 
 
@@ -130,9 +152,16 @@ def update_student(
     status_code=status.HTTP_200_OK,
     summary="Disable Student",
     description="Soft delete (disable) a student.",
+    responses={
+        404: {"description": "Student Not Found"},
+    },
 )
 def delete_student(
-    student_id: str,
+    student_id: str = Path(
+        ...,
+        min_length=4,
+        max_length=30,
+    ),
     current_admin=Depends(get_current_admin),
 ):
     return student_service.delete_student(student_id)

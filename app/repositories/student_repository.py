@@ -1,7 +1,6 @@
 from datetime import datetime, UTC
 
 from app.firebase.firebase import db
-from app.routers import student
 from app.utils.logger import logger
 
 
@@ -73,22 +72,39 @@ class StudentRepository:
             normalized["room_number"] = str(normalized["room_number"]).strip().upper()
 
         if "floor" in normalized and normalized["floor"] is not None:
-            normalized["floor"] = int(normalized["floor"])
+            try:
+                normalized["floor"] = int(normalized["floor"])
+            except (TypeError, ValueError):
+                normalized["floor"] = None
 
         if "bed_number" in normalized and normalized["bed_number"]:
             normalized["bed_number"] = str(normalized["bed_number"]).strip().upper()
 
         if "monthly_fee" in normalized and normalized["monthly_fee"] is not None:
-            normalized["monthly_fee"] = float(normalized["monthly_fee"])
+            try:
+                normalized["monthly_fee"] = float(normalized["monthly_fee"])
+            except (TypeError, ValueError):
+                normalized["monthly_fee"] = 0.0
 
         if "security_deposit" in normalized and normalized["security_deposit"] is not None:
-            normalized["security_deposit"] = float(normalized["security_deposit"])
+            try:
+                normalized["security_deposit"] = float(normalized["security_deposit"])
+            except (TypeError, ValueError):
+                normalized["security_deposit"] = 0.0
 
         if "pending_fee" in normalized and normalized["pending_fee"] is not None:
-            normalized["pending_fee"] = float(normalized["pending_fee"])
+            try:
+                normalized["pending_fee"] = float(normalized["pending_fee"])
+            except (TypeError, ValueError):
+                normalized["pending_fee"] = 0.0
 
         if "status" in normalized and normalized["status"]:
-            normalized["status"] = str(normalized["status"]).strip().title()
+            status = normalized["status"]
+
+            if hasattr(status, "value"):
+               normalized["status"] = status.value
+            else:
+               normalized["status"] = str(status).strip().title()
 
         if "remarks" in normalized and normalized["remarks"]:
             normalized["remarks"] = str(normalized["remarks"]).strip()
@@ -123,8 +139,16 @@ class StudentRepository:
 
         timestamp = self._get_timestamp()
 
-        student_data["created_at"] = timestamp
+        student_data.setdefault("created_at", timestamp)
         student_data["updated_at"] = timestamp
+
+        # Drop None-valued keys so Firestore document stays clean
+        # (only for create — update path must be able to explicitly clear a field)
+        student_data = {
+            k: v
+            for k, v in student_data.items()
+            if v is not None
+        }
 
         return student_data
 
@@ -154,6 +178,7 @@ class StudentRepository:
         except Exception:
             logger.exception("Failed to create student.")
             raise
+
 
     def get_student_by_firebase_id(self, firebase_id: str):
         try:
@@ -512,7 +537,6 @@ class StudentRepository:
                 room_id = data.get("room_firebase_id")
 
                 if not room_id:
-                    data["firebase_id"] = student.id
                     student_list.append(data)
 
             student_list = self._sort_students(student_list)
@@ -527,7 +551,7 @@ class StudentRepository:
 
     def get_student_statistics(self):
         try:
-            students = self._student_query().stream()
+            students = self.collection.stream()
 
             stats = {
                 "total_students": 0,

@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 from typing import Optional
 
 from pydantic import BaseModel
@@ -224,7 +225,7 @@ class StudentCreate(BaseModel):
 
     guardian: StudentGuardian
 
-    allocation: StudentAllocation
+    allocation: Optional[StudentAllocation] = None
 
     status: StudentStatus = StudentStatus.ACTIVE
 
@@ -249,8 +250,8 @@ class StudentResponse(BaseModel):
     )
 
     # IDs
-    student_id: str
-    firebase_id: str
+    student_id: Optional[str] = None
+    firebase_id: Optional[str] = None
 
     # Personal
     name: str
@@ -308,9 +309,9 @@ class StudentListResponse(BaseModel):
 
     message: str
 
-    data: StudentListData
+    data: Optional[StudentListData] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentSingleResponse(BaseModel):
 
@@ -318,9 +319,9 @@ class StudentSingleResponse(BaseModel):
 
     message: str
 
-    data: StudentResponse
+    data: Optional[StudentResponse] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentCreateData(BaseModel):
 
@@ -335,9 +336,9 @@ class StudentCreateResponse(BaseModel):
 
     message: str
 
-    data: StudentCreateData
+    data: Optional[StudentCreateData] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentUpdateResponse(BaseModel):
 
@@ -345,9 +346,9 @@ class StudentUpdateResponse(BaseModel):
 
     message: str
 
-    data: StudentResponse
+    data: Optional[StudentResponse] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentDeleteData(BaseModel):
 
@@ -362,7 +363,7 @@ class StudentDeleteResponse(BaseModel):
 
     data: Optional[StudentDeleteData] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentSearchResponse(BaseModel):
 
@@ -370,9 +371,9 @@ class StudentSearchResponse(BaseModel):
 
     message: str
 
-    data: StudentListData
+    data: Optional[StudentListData] = None
 
-    errors: Optional[list] = None
+    errors: Any = None
 
 class StudentCountData(BaseModel):
 
@@ -384,6 +385,6 @@ class StudentCountResponse(BaseModel):
 
     message: str
 
-    data: StudentCountData
+    data: Optional[StudentCountData] = None
 
-    errors: Optional[list] = None
+    errors: Any = None

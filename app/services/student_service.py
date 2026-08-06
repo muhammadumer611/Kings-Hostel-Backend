@@ -27,29 +27,29 @@ class StudentService:
                 "cnic": personal.get("cnic"),
                 "phone": personal.get("phone"),
                 "email": personal.get("email"),
-                "blood_group": personal.get("bloodGroup"),
-                "profile_image": personal.get("profileImage"),
-                "cnic_front_image": personal.get("cnicFrontImage"),
-                "cnic_back_image": personal.get("cnicBackImage"),
+                "blood_group": personal.get("blood_group") or personal.get("bloodGroup"),
+                "profile_image": personal.get("profile_image") or personal.get("profileImage"),
+                "cnic_front_image": personal.get("cnic_front_image") or personal.get("cnicFrontImage"),
+                "cnic_back_image": personal.get("cnic_back_image") or personal.get("cnicBackImage"),
 
-                "guardian_name": guardian.get("name"),
-                "guardian_phone": guardian.get("phone"),
-                "guardian_cnic": guardian.get("cnic"),
+                "guardian_name": guardian.get("guardian_name") or guardian.get("name"),
+                "guardian_phone": guardian.get("guardian_phone") or guardian.get("phone"),
+                "guardian_cnic": guardian.get("guardian_cnic") or guardian.get("cnic"),
                 "address": personal.get("address"),
                 "relation": guardian.get("relation"),
 
                 "block": allocation.get("block"),
-                "room_type": allocation.get("roomType"),
-                "room_firebase_id": allocation.get("roomFirebaseId"),
+                "room_type": allocation.get("room_type") or allocation.get("roomType"),
+                "room_firebase_id": allocation.get("room_firebase_id") or allocation.get("roomFirebaseId"),
                 "floor": allocation.get("floor"),
-                "joining_date": allocation.get("joiningDate"),
+                "joining_date": allocation.get("joining_date") or allocation.get("joiningDate"),
                 "remarks": allocation.get("remarks"),
 
-                "room_number": allocation.get("roomNumber"),
-                "bed_number": allocation.get("bedNumber"),
+                "room_number": allocation.get("room_number") or allocation.get("roomNumber"),
+                "bed_number": allocation.get("bed_number") or allocation.get("bedNumber"),
 
-                "monthly_fee": allocation.get("monthlyFee"),
-                "security_deposit": allocation.get("securityDeposit"),
+                "monthly_fee": allocation.get("monthly_fee") or allocation.get("monthlyFee"),
+                "security_deposit": allocation.get("security_deposit") or allocation.get("securityDeposit"),
 
                 "status": student_data.get("status", "Active"),
             }
@@ -116,7 +116,11 @@ class StudentService:
 
             "blood_group": student.get("blood_group"),
             "joining_date": student.get("joining_date"),
-            "status": student.get("status", "Active"),
+            "status": (
+                        student.get("status").value
+                        if hasattr(student.get("status"), "value")
+                        else student.get("status", "Active")
+                    ),
             "remarks": student.get("remarks"),
 
             "room_number": student.get("room_number"),
@@ -125,7 +129,7 @@ class StudentService:
             "monthly_fee": student.get("monthly_fee", 0),
             "security_deposit": student.get("security_deposit", 0),
             "pending_fee": student.get("pending_fee", 0),
-            "fee_status": student.get("fee_status"),
+            "fee_status": student.get("fee_status", "Pending"),
 
             "created_at": (
                 created_at.isoformat()
@@ -143,6 +147,9 @@ class StudentService:
     def create_student(self, student_data: dict):
         try:
             normalized_student = self._normalize_student_data(student_data)
+
+            print(student_data)
+            print(normalized_student)
 
             if not normalized_student.get("name"):
                 return APIResponse.error("Student name is required.")
@@ -324,7 +331,7 @@ class StudentService:
             update_data = {}
 
             if "personal" in student_data:
-                personal = student_data["personal"]
+                personal = student_data["personal"] or {}
 
                 if "name" in personal:
                     update_data["name"] = personal["name"]
@@ -338,68 +345,96 @@ class StudentService:
                 if "email" in personal:
                     update_data["email"] = personal["email"]
 
-                if "bloodGroup" in personal:
-                    update_data["blood_group"] = personal["bloodGroup"]
+                if "blood_group" in personal or "bloodGroup" in personal:
+                    update_data["blood_group"] = (
+                        personal.get("blood_group") or personal.get("bloodGroup")
+                    )
 
                 if "address" in personal:
                     update_data["address"] = personal["address"]
 
-                if "profileImage" in personal:
-                    update_data["profile_image"] = personal["profileImage"]
+                if "profile_image" in personal or "profileImage" in personal:
+                    update_data["profile_image"] = (
+                        personal.get("profile_image") or personal.get("profileImage")
+                    )
 
-                if "cnicFrontImage" in personal:
-                    update_data["cnic_front_image"] = personal["cnicFrontImage"]
+                if "cnic_front_image" in personal or "cnicFrontImage" in personal:
+                    update_data["cnic_front_image"] = (
+                        personal.get("cnic_front_image") or personal.get("cnicFrontImage")
+                    )
 
-                if "cnicBackImage" in personal:
-                    update_data["cnic_back_image"] = personal["cnicBackImage"]
+                if "cnic_back_image" in personal or "cnicBackImage" in personal:
+                    update_data["cnic_back_image"] = (
+                        personal.get("cnic_back_image") or personal.get("cnicBackImage")
+                    )
 
             if "guardian" in student_data:
-                guardian = student_data["guardian"]
+                guardian = student_data["guardian"] or {}
 
-                if "name" in guardian:
-                    update_data["guardian_name"] = guardian["name"]
+                if "guardian_name" in guardian or "name" in guardian:
+                    update_data["guardian_name"] = (
+                        guardian.get("guardian_name") or guardian.get("name")
+                    )
 
-                if "phone" in guardian:
-                    update_data["guardian_phone"] = guardian["phone"]
+                if "guardian_phone" in guardian or "phone" in guardian:
+                    update_data["guardian_phone"] = (
+                        guardian.get("guardian_phone") or guardian.get("phone")
+                    )
 
-                if "cnic" in guardian:
-                    update_data["guardian_cnic"] = guardian["cnic"]
+                if "guardian_cnic" in guardian or "cnic" in guardian:
+                    update_data["guardian_cnic"] = (
+                        guardian.get("guardian_cnic") or guardian.get("cnic")
+                    )
 
                 if "relation" in guardian:
                     update_data["relation"] = guardian["relation"]
 
             if "allocation" in student_data:
-                allocation = student_data["allocation"]
+                allocation = student_data["allocation"] or {}
 
                 if "block" in allocation:
                     update_data["block"] = allocation["block"]
 
-                if "roomType" in allocation:
-                    update_data["room_type"] = allocation["roomType"]
+                if "room_type" in allocation or "roomType" in allocation:
+                    update_data["room_type"] = (
+                        allocation.get("room_type") or allocation.get("roomType")
+                    )
 
-                if "roomNumber" in allocation:
-                    update_data["room_number"] = allocation["roomNumber"]
+                if "room_number" in allocation or "roomNumber" in allocation:
+                    update_data["room_number"] = (
+                        allocation.get("room_number") or allocation.get("roomNumber")
+                    )
 
-                if "bedNumber" in allocation:
-                    update_data["bed_number"] = allocation["bedNumber"]
+                if "bed_number" in allocation or "bedNumber" in allocation:
+                    update_data["bed_number"] = (
+                        allocation.get("bed_number") or allocation.get("bedNumber")
+                    )
 
-                if "roomFirebaseId" in allocation:
-                    update_data["room_firebase_id"] = allocation["roomFirebaseId"]
+                if "room_firebase_id" in allocation or "roomFirebaseId" in allocation:
+                    update_data["room_firebase_id"] = (
+                        allocation.get("room_firebase_id") or allocation.get("roomFirebaseId")
+                    )
 
                 if "floor" in allocation:
                     update_data["floor"] = allocation["floor"]
 
-                if "joiningDate" in allocation:
-                    update_data["joining_date"] = allocation["joiningDate"]
+                if "joining_date" in allocation or "joiningDate" in allocation:
+                    update_data["joining_date"] = (
+                        allocation.get("joining_date") or allocation.get("joiningDate")
+                    )
 
                 if "remarks" in allocation:
                     update_data["remarks"] = allocation["remarks"]
 
-                if "monthlyFee" in allocation:
-                    update_data["monthly_fee"] = allocation["monthlyFee"]
+                if "monthly_fee" in allocation or "monthlyFee" in allocation:
+                    update_data["monthly_fee"] = (
+                        allocation.get("monthly_fee") or allocation.get("monthlyFee")
+                    )
 
-                if "securityDeposit" in allocation:
-                    update_data["security_deposit"] = allocation["securityDeposit"]
+                if "security_deposit" in allocation or "securityDeposit" in allocation:
+                    update_data["security_deposit"] = (
+                        allocation.get("security_deposit") or allocation.get("securityDeposit")
+                    )
 
             if "status" in student_data:
                 update_data["status"] = student_data["status"]
