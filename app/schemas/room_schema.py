@@ -1,28 +1,42 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
-from pydantic import Field
-from pydantic import field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
+# ============================================================
+# ROOM STATUS
+# ============================================================
+
+class RoomStatus:
+    AVAILABLE = "Available"
+    PARTIALLY_OCCUPIED = "Partially Occupied"
+    FULL = "Full"
+    INACTIVE = "Inactive"
+
+
+# ============================================================
+# ROOM CREATE
+# ============================================================
 
 class RoomCreate(BaseModel):
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid"
+    )
 
     room_number: str = Field(
         ...,
         min_length=1,
         max_length=20,
-        description="Unique Room Number",
+        description="Unique room number.",
         examples=["101"],
     )
 
     floor: int = Field(
         ...,
         ge=0,
-        description="Floor Number",
+        description="Floor number. Ground floor = 0.",
         examples=[1],
     )
 
@@ -30,111 +44,200 @@ class RoomCreate(BaseModel):
         ...,
         ge=1,
         le=20,
-        description="Total Beds",
+        description="Total number of beds in the room.",
         examples=[4],
     )
 
     monthly_fee: float = Field(
         ...,
         gt=0,
-        description="Monthly Fee",
+        description="Monthly fee for the room/student.",
         examples=[12000],
     )
 
     security_deposit: float = Field(
         default=0,
         ge=0,
-        description="Security Deposit",
+        description="Security deposit.",
         examples=[5000],
     )
-
-    
 
     @field_validator("room_number")
     @classmethod
     def validate_room_number(cls, value: str) -> str:
-        trimmed_value = str(value or "").strip().upper()
-        if not trimmed_value:
-            raise ValueError("Room number cannot be empty.")
-        return trimmed_value
+
+        value = str(value).strip().upper()
+
+        if not value:
+            raise ValueError(
+                "Room number cannot be empty."
+            )
+
+        return value
+
+
+# ============================================================
+# ROOM UPDATE
+# ============================================================
 
 class RoomUpdate(BaseModel):
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid"
+    )
 
-    room_number: Optional[str] = None
+    room_number: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+    )
 
-    floor: Optional[int] = Field(default=None, ge=0)
+    floor: Optional[int] = Field(
+        default=None,
+        ge=0,
+    )
 
-    total_beds: Optional[int] = Field(default=None, ge=1, le=20)
+    total_beds: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=20,
+    )
 
-    monthly_fee: Optional[float] = Field(default=None, gt=0)
+    monthly_fee: Optional[float] = Field(
+        default=None,
+        gt=0,
+    )
 
-    security_deposit: Optional[float] = Field(default=None, ge=0)
+    security_deposit: Optional[float] = Field(
+        default=None,
+        ge=0,
+    )
 
     is_active: Optional[bool] = None
 
     @field_validator("room_number")
     @classmethod
-    def validate_room_number(cls, value: Optional[str]) -> Optional[str]:
+    def validate_room_number(
+        cls,
+        value: Optional[str],
+    ) -> Optional[str]:
+
         if value is None:
             return None
 
-        trimmed_value = str(value).strip().upper()
+        value = str(value).strip().upper()
 
-        if not trimmed_value:
-            raise ValueError("Room number cannot be empty.")
+        if not value:
+            raise ValueError(
+                "Room number cannot be empty."
+            )
 
-        return trimmed_value
+        return value
 
-        
+
+# ============================================================
+# ROOM RESPONSE
+# ============================================================
+
 class RoomResponse(BaseModel):
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
-    firebase_id: str = Field(..., description="Firebase Document ID")
+    firebase_id: str = Field(
+        ...,
+        description="Firebase document ID.",
+    )
 
-    room_number: str
+    room_number: str = Field(
+        ...,
+        description="Unique room number.",
+    )
 
-    floor: int
+    floor: int = Field(
+        ...,
+        ge=0,
+    )
 
-    total_beds: int
+    total_beds: int = Field(
+        ...,
+        ge=1,
+    )
 
-    occupied_beds: int
+    occupied_beds: int = Field(
+        ...,
+        ge=0,
+    )
 
-    available_beds: int
+    available_beds: int = Field(
+        ...,
+        ge=0,
+    )
 
-    status: str
+    status: str = Field(
+        ...,
+        description=(
+            "Room status: Available, Partially Occupied, "
+            "Full, or Inactive."
+        ),
+    )
 
-    monthly_fee: float
+    monthly_fee: float = Field(
+        ...,
+        ge=0,
+    )
 
-    security_deposit: float
+    security_deposit: float = Field(
+        ...,
+        ge=0,
+    )
 
     is_active: bool
 
-    current_students: list[str] = Field(default_factory=list)
-
-    
+    current_students: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Student IDs currently allocated to this room."
+        ),
+    )
 
     created_at: Optional[datetime] = None
+
     updated_at: Optional[datetime] = None
 
 
+# ============================================================
+# ROOM LIST DATA
+# ============================================================
 
 class RoomListData(BaseModel):
 
-    total_rooms: int = Field(..., description="Total Rooms", examples=[50])
+    total_rooms: int = Field(
+        ...,
+        ge=0,
+    )
 
-    rooms: list[RoomResponse]
+    rooms: list[RoomResponse] = Field(
+        default_factory=list,
+    )
 
+
+# ============================================================
+# ROOM CREATE DATA
+# ============================================================
 
 class RoomCreateData(BaseModel):
 
     firebase_id: str = Field(
         ...,
-        description="Firebase Room Document ID",
+        description="Firebase room document ID.",
     )
 
+
+# ============================================================
+# ROOM CREATE RESPONSE
+# ============================================================
 
 class RoomCreateResponse(BaseModel):
 
@@ -147,6 +250,10 @@ class RoomCreateResponse(BaseModel):
     errors: Optional[list] = None
 
 
+# ============================================================
+# ROOM SINGLE RESPONSE
+# ============================================================
+
 class RoomSingleResponse(BaseModel):
 
     success: bool
@@ -157,6 +264,10 @@ class RoomSingleResponse(BaseModel):
 
     errors: Optional[list] = None
 
+
+# ============================================================
+# ROOM LIST RESPONSE
+# ============================================================
 
 class RoomListResponse(BaseModel):
 
@@ -169,6 +280,10 @@ class RoomListResponse(BaseModel):
     errors: Optional[list] = None
 
 
+# ============================================================
+# ROOM UPDATE RESPONSE
+# ============================================================
+
 class RoomUpdateResponse(BaseModel):
 
     success: bool
@@ -180,16 +295,37 @@ class RoomUpdateResponse(BaseModel):
     errors: Optional[list] = None
 
 
+# ============================================================
+# ROOM DELETE / DISABLE DATA
+# ============================================================
+
+class RoomDeleteData(BaseModel):
+
+    firebase_id: str
+
+    room_number: str
+
+    disabled: bool = True
+
+
+# ============================================================
+# ROOM DELETE / DISABLE RESPONSE
+# ============================================================
+
 class RoomDeleteResponse(BaseModel):
 
     success: bool
 
     message: str
 
-    data: Optional[dict] = None
+    data: Optional[RoomDeleteData] = None
 
     errors: Optional[list] = None
 
+
+# ============================================================
+# ROOM SEARCH RESPONSE
+# ============================================================
 
 class RoomSearchResponse(BaseModel):
 
@@ -202,12 +338,28 @@ class RoomSearchResponse(BaseModel):
     errors: Optional[list] = None
 
 
+# ============================================================
+# ROOM COUNT DATA
+# ============================================================
+
+class RoomCountData(BaseModel):
+
+    total_rooms: int = Field(
+        ...,
+        ge=0,
+    )
+
+
+# ============================================================
+# ROOM COUNT RESPONSE
+# ============================================================
+
 class RoomCountResponse(BaseModel):
 
     success: bool
 
     message: str
 
-    data: dict
+    data: RoomCountData
 
     errors: Optional[list] = None

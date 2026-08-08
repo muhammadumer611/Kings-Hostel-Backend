@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends
 from app.dependencies.auth_dependency import get_current_admin
 from app.services.auth_service import AuthService
 from app.schemas.auth_schema import (
-   # LoginRequest,
+    LoginRequest,
     ChangePasswordRequest,
     ChangeEmailRequest,
     ForgotPasswordRequest,
-    SwaggerLoginRequest,
+    LoginRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -19,14 +19,8 @@ def auth_home():
     return {"message": "Authentication API Working"}
 
 @router.post("/login")
-def login(payload: SwaggerLoginRequest):
-    return auth_service.swagger_login(
-        payload.email,
-        payload.password,
-    )
-# @router.post("/login")
-# def login(payload: LoginRequest):
-#     return auth_service.authenticate_admin(payload.id_token)
+def login(payload: LoginRequest):
+    return auth_service.authenticate_admin(payload.id_token)
 
 
 @router.get("/me")
@@ -77,9 +71,5 @@ def logout():
         "data": None,
         "errors": None,
     }
-# @router.post("/swagger-login")
-# def swagger_login(payload: SwaggerLoginRequest):
-#     return auth_service.swagger_login(
-#         payload.email,
-#         payload.password,
-#     )
+
+#uvicorn app.main:app --reload

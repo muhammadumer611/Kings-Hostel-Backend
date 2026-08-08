@@ -1,4 +1,7 @@
+from typing import Any
+
 from app.repositories.student_repository import StudentRepository
+from app.services.room_service import RoomService
 from app.utils.student_id_generator import StudentIDGenerator
 from app.utils.api_response import APIResponse
 from app.utils.logger import logger
@@ -8,98 +11,523 @@ class StudentService:
 
     def __init__(self):
         self.repository = StudentRepository()
+        self.room_service = RoomService()
         self.id_generator = StudentIDGenerator()
+
+    # ============================================================
+    # NORMALIZATION
+    # ============================================================
+
+    @staticmethod
+    def _clean_string(value: Any) -> str | None:
+        if value is None:
+            return None
+
+        value = str(value).strip()
+
+        return value if value else None
+
+    @staticmethod
+    def _clean_upper(value: Any) -> str | None:
+        value = StudentService._clean_string(value)
+
+        return value.upper() if value else None
+
+    @staticmethod
+    def _clean_lower(value: Any) -> str | None:
+        value = StudentService._clean_string(value)
+
+        return value.lower() if value else None
+
+    @staticmethod
+    def _enum_value(value: Any, default: str | None = None) -> str | None:
+        if value is None:
+            return default
+
+        if hasattr(value, "value"):
+            return str(value.value)
+
+        value = str(value).strip()
+
+        return value if value else default
+
+    @staticmethod
+    def _normalize_money(
+        value: Any,
+        field_name: str,
+        allow_zero: bool = True,
+    ) -> float | None:
+
+        if value is None:
+            return None
+
+        try:
+            amount = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} must be a valid number.")
+
+        if amount < 0:
+            raise ValueError(f"{field_name} cannot be negative.")
+
+        if not allow_zero and amount <= 0:
+            raise ValueError(f"{field_name} must be greater than 0.")
+
+        return round(amount, 2)
+
+    # ============================================================
+    # PAYLOAD NORMALIZATION
+    # ============================================================
 
     def _normalize_student_data(self, student_data: dict) -> dict:
 
-        # ---------- New Frontend Payload ----------
+        if not isinstance(student_data, dict):
+            raise ValueError("Student payload must be a dictionary.")
+
+        personal = student_data.get("personal")
+        guardian = student_data.get("guardian")
+        allocation = student_data.get("allocation")
+
+        # --------------------------------------------------------
+        # NEW NESTED PAYLOAD
+        # --------------------------------------------------------
+
         if (
             "personal" in student_data
-            and "guardian" in student_data
-            and "allocation" in student_data
+            or "guardian" in student_data
+            or "allocation" in student_data
         ):
-            personal = student_data.get("personal") or {}
-            guardian = student_data.get("guardian") or {}
-            allocation = student_data.get("allocation") or {}
+
+            personal = personal or {}
+            guardian = guardian or {}
+            allocation = allocation or {}
+
+            if not isinstance(personal, dict):
+                raise ValueError("Personal data must be an object.")
+
+            if not isinstance(guardian, dict):
+                raise ValueError("Guardian data must be an object.")
+
+            if not isinstance(allocation, dict):
+                raise ValueError("Allocation data must be an object.")
 
             return {
-                "name": personal.get("name"),
-                "cnic": personal.get("cnic"),
-                "phone": personal.get("phone"),
-                "email": personal.get("email"),
-                "blood_group": personal.get("blood_group") or personal.get("bloodGroup"),
-                "profile_image": personal.get("profile_image") or personal.get("profileImage"),
-                "cnic_front_image": personal.get("cnic_front_image") or personal.get("cnicFrontImage"),
-                "cnic_back_image": personal.get("cnic_back_image") or personal.get("cnicBackImage"),
+                "name": self._clean_string(
+                    personal.get("name")
+                ),
 
-                "guardian_name": guardian.get("guardian_name") or guardian.get("name"),
-                "guardian_phone": guardian.get("guardian_phone") or guardian.get("phone"),
-                "guardian_cnic": guardian.get("guardian_cnic") or guardian.get("cnic"),
-                "address": personal.get("address"),
-                "relation": guardian.get("relation"),
+                "cnic": self._clean_string(
+                    personal.get("cnic")
+                ),
 
-                "block": allocation.get("block"),
-                "room_type": allocation.get("room_type") or allocation.get("roomType"),
-                "room_firebase_id": allocation.get("room_firebase_id") or allocation.get("roomFirebaseId"),
+                "phone": self._clean_string(
+                    personal.get("phone")
+                ),
+
+                "email": self._clean_lower(
+                    personal.get("email")
+                ),
+
+                "blood_group": self._clean_upper(
+                    personal.get("blood_group")
+                    if "blood_group" in personal
+                    else personal.get("bloodGroup")
+                ),
+
+                "address": self._clean_string(
+                    personal.get("address")
+                ),
+
+                "profile_image": self._clean_string(
+                    personal.get("profile_image")
+                    if "profile_image" in personal
+                    else personal.get("profileImage")
+                ),
+
+                "cnic_front_image": self._clean_string(
+                    personal.get("cnic_front_image")
+                    if "cnic_front_image" in personal
+                    else personal.get("cnicFrontImage")
+                ),
+
+                "cnic_back_image": self._clean_string(
+                    personal.get("cnic_back_image")
+                    if "cnic_back_image" in personal
+                    else personal.get("cnicBackImage")
+                ),
+
+                "guardian_name": self._clean_string(
+                    guardian.get("guardian_name")
+                    if "guardian_name" in guardian
+                    else guardian.get("name")
+                ),
+
+                "guardian_phone": self._clean_string(
+                    guardian.get("guardian_phone")
+                    if "guardian_phone" in guardian
+                    else guardian.get("phone")
+                ),
+
+                "guardian_cnic": self._clean_string(
+                    guardian.get("guardian_cnic")
+                    if "guardian_cnic" in guardian
+                    else guardian.get("cnic")
+                ),
+
+                "relation": self._clean_string(
+                    guardian.get("relation")
+                ),
+
+                "block": self._clean_upper(
+                    allocation.get("block")
+                ),
+
+                "room_type": self._clean_string(
+                    allocation.get("room_type")
+                    if "room_type" in allocation
+                    else allocation.get("roomType")
+                ),
+
+                "room_firebase_id": self._clean_string(
+                    allocation.get("room_firebase_id")
+                    if "room_firebase_id" in allocation
+                    else allocation.get("roomFirebaseId")
+                ),
+
+                "room_number": self._clean_upper(
+                    allocation.get("room_number")
+                    if "room_number" in allocation
+                    else allocation.get("roomNumber")
+                ),
+
                 "floor": allocation.get("floor"),
-                "joining_date": allocation.get("joining_date") or allocation.get("joiningDate"),
-                "remarks": allocation.get("remarks"),
 
-                "room_number": allocation.get("room_number") or allocation.get("roomNumber"),
-                "bed_number": allocation.get("bed_number") or allocation.get("bedNumber"),
+                "bed_number": self._clean_upper(
+                    allocation.get("bed_number")
+                    if "bed_number" in allocation
+                    else allocation.get("bedNumber")
+                ),
 
-                "monthly_fee": allocation.get("monthly_fee") or allocation.get("monthlyFee"),
-                "security_deposit": allocation.get("security_deposit") or allocation.get("securityDeposit"),
+                "joining_date": self._clean_string(
+                    allocation.get("joining_date")
+                    if "joining_date" in allocation
+                    else allocation.get("joiningDate")
+                ),
 
-                "status": student_data.get("status", "Active"),
+                "remarks": self._clean_string(
+                    allocation.get("remarks")
+                ),
+
+                "monthly_fee": allocation.get("monthly_fee")
+                if "monthly_fee" in allocation
+                else allocation.get("monthlyFee"),
+
+                "security_deposit": allocation.get("security_deposit")
+                if "security_deposit" in allocation
+                else allocation.get("securityDeposit"),
+
+                "status": self._enum_value(
+                    student_data.get("status"),
+                    "Active",
+                ),
             }
 
-        # ---------- Legacy Payload ----------
+        # --------------------------------------------------------
+        # LEGACY PAYLOAD
+        # --------------------------------------------------------
+
         return {
-            "name": student_data.get("name") or student_data.get("full_name"),
-            "cnic": student_data.get("cnic"),
-            "phone": student_data.get("phone"),
-            "email": student_data.get("email"),
-            "blood_group": student_data.get("blood_group"),
-            "address": student_data.get("address"),
-            "profile_image": student_data.get("profile_image"),
-            "cnic_front_image": student_data.get("cnic_front_image"),
-            "cnic_back_image": student_data.get("cnic_back_image"),
-            "guardian_name": (
+            "name": self._clean_string(
+                student_data.get("name")
+                or student_data.get("full_name")
+            ),
+
+            "cnic": self._clean_string(
+                student_data.get("cnic")
+            ),
+
+            "phone": self._clean_string(
+                student_data.get("phone")
+            ),
+
+            "email": self._clean_lower(
+                student_data.get("email")
+            ),
+
+            "blood_group": self._clean_upper(
+                student_data.get("blood_group")
+            ),
+
+            "address": self._clean_string(
+                student_data.get("address")
+            ),
+
+            "profile_image": self._clean_string(
+                student_data.get("profile_image")
+            ),
+
+            "cnic_front_image": self._clean_string(
+                student_data.get("cnic_front_image")
+            ),
+
+            "cnic_back_image": self._clean_string(
+                student_data.get("cnic_back_image")
+            ),
+
+            "guardian_name": self._clean_string(
                 student_data.get("guardian_name")
                 or student_data.get("father_name")
             ),
-            "relation": student_data.get("relation"),
-            "guardian_phone": student_data.get("guardian_phone"),
-            "guardian_cnic": student_data.get("guardian_cnic"),
-            "block": student_data.get("block"),
-            "room_type": student_data.get("room_type"),
-            "room_number": student_data.get("room_number"),
-            "bed_number": student_data.get("bed_number"),
-            "room_firebase_id": student_data.get("room_firebase_id"),
+
+            "guardian_phone": self._clean_string(
+                student_data.get("guardian_phone")
+            ),
+
+            "guardian_cnic": self._clean_string(
+                student_data.get("guardian_cnic")
+            ),
+
+            "relation": self._clean_string(
+                student_data.get("relation")
+            ),
+
+            "block": self._clean_upper(
+                student_data.get("block")
+            ),
+
+            "room_type": self._clean_string(
+                student_data.get("room_type")
+            ),
+
+            "room_firebase_id": self._clean_string(
+                student_data.get("room_firebase_id")
+            ),
+
+            "room_number": self._clean_upper(
+                student_data.get("room_number")
+            ),
+
             "floor": student_data.get("floor"),
 
-            "joining_date": student_data.get("joining_date"),
-            "remarks": student_data.get("remarks"),
+            "bed_number": self._clean_upper(
+                student_data.get("bed_number")
+            ),
+
+            "joining_date": self._clean_string(
+                student_data.get("joining_date")
+            ),
+
+            "remarks": self._clean_string(
+                student_data.get("remarks")
+            ),
 
             "monthly_fee": student_data.get("monthly_fee"),
+
             "security_deposit": student_data.get("security_deposit"),
-            "status": student_data.get("status", "Active"),
+
+            "status": self._enum_value(
+                student_data.get("status"),
+                "Active",
+            ),
         }
 
+    # ============================================================
+    # VALIDATION
+    # ============================================================
+
+    def _validate_student_data(
+        self,
+        student_data: dict,
+        is_create: bool = True,
+    ) -> None:
+
+        if not isinstance(student_data, dict):
+            raise ValueError("Invalid student data.")
+
+        if is_create:
+
+            required_fields = {
+                "name": "Student name is required.",
+                "cnic": "CNIC is required.",
+                "phone": "Phone number is required.",
+                "guardian_name": "Guardian name is required.",
+                "guardian_phone": "Guardian phone is required.",
+                "guardian_cnic": "Guardian CNIC is required.",
+                "address": "Address is required.",
+            }
+
+            for field, message in required_fields.items():
+                if not self._clean_string(student_data.get(field)):
+                    raise ValueError(message)
+
+        if student_data.get("floor") is not None:
+            try:
+                floor = int(student_data["floor"])
+            except (TypeError, ValueError):
+                raise ValueError("Floor must be a valid number.")
+
+            if floor < 0:
+                raise ValueError("Floor cannot be negative.")
+
+            student_data["floor"] = floor
+
+        if "monthly_fee" in student_data:
+            student_data["monthly_fee"] = self._normalize_money(
+                student_data.get("monthly_fee"),
+                "Monthly fee",
+                allow_zero=True,
+            )
+
+        if "security_deposit" in student_data:
+            student_data["security_deposit"] = self._normalize_money(
+                student_data.get("security_deposit"),
+                "Security deposit",
+                allow_zero=True,
+            )
+
+    # ============================================================
+    # UNIQUE FIELD VALIDATION
+    # ============================================================
+
+    def _check_unique_fields(
+        self,
+        student_data: dict,
+        current_student: dict | None = None,
+    ) -> None:
+
+        current_cnic = current_student.get("cnic") if current_student else None
+        current_phone = current_student.get("phone") if current_student else None
+        current_email = current_student.get("email") if current_student else None
+
+        cnic = student_data.get("cnic")
+
+        if cnic and cnic != current_cnic:
+
+            existing = self.repository.get_student_by_cnic(cnic)
+
+            if existing:
+                existing_id = existing.get("student_id")
+
+                if not current_student or existing_id != current_student.get(
+                    "student_id"
+                ):
+                    raise ValueError(
+                        "Student with this CNIC already exists."
+                    )
+
+        phone = student_data.get("phone")
+
+        if phone and phone != current_phone:
+
+            existing = self.repository.get_student_by_phone(phone)
+
+            if existing:
+                existing_id = existing.get("student_id")
+
+                if not current_student or existing_id != current_student.get(
+                    "student_id"
+                ):
+                    raise ValueError(
+                        "Phone number already exists."
+                    )
+
+        email = student_data.get("email")
+
+        if email and email != current_email:
+
+            existing = self.repository.get_student_by_email(email)
+
+            if existing:
+                existing_id = existing.get("student_id")
+
+                if not current_student or existing_id != current_student.get(
+                    "student_id"
+                ):
+                    raise ValueError(
+                        "Email already exists."
+                    )
+
+    # ============================================================
+    # ROOM VALIDATION
+    # ============================================================
+
+    def _validate_room_allocation(
+        self,
+        allocation: dict,
+    ) -> None:
+
+        room_id = allocation.get("room_firebase_id")
+
+        if not room_id:
+            return
+
+        response = self.room_service.get_room_for_allocation(room_id)
+
+        if not response.get("success"):
+            raise ValueError(
+                response.get("message", "Room is not available.")
+            )
+
+        room = response.get("data") or {}
+
+        if not room.get("is_active", True):
+            raise ValueError("Selected room is disabled.")
+
+        if room.get("available_beds", 0) <= 0:
+            raise ValueError("Selected room is already full.")
+
+        room_number = allocation.get("room_number")
+
+        if room_number:
+            actual_room_number = str(
+                room.get("room_number", "")
+            ).strip().upper()
+
+            if actual_room_number != room_number:
+                raise ValueError(
+                    "Selected room number does not match room."
+                )
+
+        floor = allocation.get("floor")
+
+        if floor is not None:
+            if room.get("floor") != floor:
+                raise ValueError(
+                    "Selected room floor does not match room."
+                )
+
+    # ============================================================
+    # SERIALIZATION
+    # ============================================================
+
     def _serialize_student(self, student: dict) -> dict:
+
+        if not student:
+            return {}
+
         created_at = student.get("created_at")
         updated_at = student.get("updated_at")
 
+        status = student.get("status", "Active")
+        fee_status = student.get("fee_status", "Pending")
+
+        if hasattr(status, "value"):
+            status = status.value
+
+        if hasattr(fee_status, "value"):
+            fee_status = fee_status.value
+
         return {
-            "student_id": student.get("student_id", ""),
-            "firebase_id": student.get("firebase_id", ""),
+            "student_id": student.get("student_id"),
+            "firebase_id": student.get("firebase_id"),
 
             "name": student.get("name", ""),
             "cnic": student.get("cnic", ""),
             "phone": student.get("phone", ""),
-            "email": student.get("email", ""),
+            "email": student.get("email"),
+
+            "blood_group": student.get("blood_group"),
             "address": student.get("address"),
+
             "profile_image": student.get("profile_image"),
             "cnic_front_image": student.get("cnic_front_image"),
             "cnic_back_image": student.get("cnic_back_image"),
@@ -112,24 +540,28 @@ class StudentService:
             "block": student.get("block"),
             "room_type": student.get("room_type"),
             "room_firebase_id": student.get("room_firebase_id"),
-            "floor": student.get("floor"),
-
-            "blood_group": student.get("blood_group"),
-            "joining_date": student.get("joining_date"),
-            "status": (
-                        student.get("status").value
-                        if hasattr(student.get("status"), "value")
-                        else student.get("status", "Active")
-                    ),
-            "remarks": student.get("remarks"),
-
             "room_number": student.get("room_number"),
+            "floor": student.get("floor"),
             "bed_number": student.get("bed_number"),
 
-            "monthly_fee": student.get("monthly_fee", 0),
-            "security_deposit": student.get("security_deposit", 0),
-            "pending_fee": student.get("pending_fee", 0),
-            "fee_status": student.get("fee_status", "Pending"),
+            "monthly_fee": float(
+                student.get("monthly_fee", 0) or 0
+            ),
+
+            "security_deposit": float(
+                student.get("security_deposit", 0) or 0
+            ),
+
+            "pending_fee": float(
+                student.get("pending_fee", 0) or 0
+            ),
+
+            "fee_status": fee_status,
+
+            "status": status,
+
+            "joining_date": student.get("joining_date"),
+            "remarks": student.get("remarks"),
 
             "created_at": (
                 created_at.isoformat()
@@ -144,360 +576,692 @@ class StudentService:
             ),
         }
 
+    # ============================================================
+    # CREATE
+    # ============================================================
+
     def create_student(self, student_data: dict):
+
         try:
-            normalized_student = self._normalize_student_data(student_data)
+            normalized = self._normalize_student_data(student_data)
 
-            print(student_data)
-            print(normalized_student)
-
-            if not normalized_student.get("name"):
-                return APIResponse.error("Student name is required.")
-
-            if not normalized_student.get("cnic"):
-                return APIResponse.error("CNIC is required.")
-
-            existing_student = self.repository.get_student_by_cnic(
-                normalized_student.get("cnic", "")
+            self._validate_student_data(
+                normalized,
+                is_create=True,
             )
 
-            if existing_student:
-                logger.warning(
-                    "Duplicate CNIC detected | "
-                    f"CNIC: {normalized_student.get('cnic')}"
+            self._check_unique_fields(normalized)
+
+            # Validate room before creating student.
+            self._validate_room_allocation(normalized)
+
+            # Generate unique student ID.
+            student_id = self.id_generator.generate()
+
+            max_attempts = 20
+
+            for _ in range(max_attempts):
+
+                if not self.repository.student_exists(student_id):
+                    break
+
+                student_id = self.id_generator.generate()
+
+            else:
+                logger.error(
+                    "Unable to generate unique student ID."
                 )
 
                 return APIResponse.error(
-                    "Student with this CNIC already exists."
+                    "Unable to generate student ID."
                 )
 
-            if not normalized_student.get("phone"):
-                return APIResponse.error("Phone number is required.")
+            normalized["student_id"] = student_id
 
-            existing_phone = self.repository.get_student_by_phone(
-                normalized_student.get("phone", "")
+            firebase_id = self.repository.create_student(
+                normalized
             )
 
-            if existing_phone:
-                logger.warning(
-                    "Duplicate phone detected | "
-                    f"Phone: {normalized_student.get('phone')}"
+            # ----------------------------------------------------
+            # Room allocation synchronization
+            # ----------------------------------------------------
+
+            room_id = normalized.get("room_firebase_id")
+
+            if room_id:
+
+                room_response = (
+                    self.room_service.assign_student_to_room(
+                        room_id,
+                        student_id,
+                    )
                 )
 
-                return APIResponse.error(
-                    "Phone number already exists."
-                )
+                if not room_response.get("success"):
 
-            if not normalized_student.get("guardian_name"):
-                return APIResponse.error(
-                    "Guardian name is required."
-                )
-
-            if not normalized_student.get("guardian_phone"):
-                return APIResponse.error(
-                    "Guardian phone is required."
-                )
-
-            if not normalized_student.get("guardian_cnic"):
-                return APIResponse.error(
-                    "Guardian CNIC is required."
-                )
-
-            if not normalized_student.get("address"):
-                return APIResponse.error(
-                    "Address is required."
-                )
-
-            email = (normalized_student.get("email") or "").strip()
-
-            if email:
-                existing_email = self.repository.get_student_by_email(email)
-
-                if existing_email:
-                    return APIResponse.error(
-                        "Email already exists."
+                    logger.error(
+                        "Student created but room allocation failed | "
+                        f"Student ID: {student_id} | "
+                        f"Room ID: {room_id}"
                     )
 
-            normalized_student["student_id"] = self.id_generator.generate()
+                    # Roll back student using soft delete.
+                    self.repository.disable_student(student_id)
 
-            while self.repository.student_exists(normalized_student["student_id"]):
-                normalized_student["student_id"] = self.id_generator.generate()
-
-            firebase_id = self.repository.create_student(normalized_student)
+                    return APIResponse.error(
+                        room_response.get(
+                            "message",
+                            "Unable to allocate room."
+                        )
+                    )
 
             logger.info(
                 "Student created successfully | "
-                f"Student ID: {normalized_student['student_id']} | "
+                f"Student ID: {student_id} | "
                 f"Firebase ID: {firebase_id}"
             )
 
             return APIResponse.success(
                 "Student added successfully.",
                 {
-                    "student_id": normalized_student["student_id"],
+                    "student_id": student_id,
                     "firebase_id": firebase_id,
                 },
             )
 
-        except Exception as e:
-            logger.exception("Failed to create student.")
+        except ValueError as exc:
+
+            logger.warning(
+                f"Student validation failed | {exc}"
+            )
+
+            return APIResponse.error(str(exc))
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to create student."
+            )
 
             return APIResponse.error(
                 "Unable to create student.",
-                str(e),
+                str(exc),
             )
 
+    # ============================================================
+    # GET ALL
+    # ============================================================
+
     def get_all_students(self):
+
         try:
             students = self.repository.get_all_students()
 
-            serialized_students = [
+            serialized = [
                 self._serialize_student(student)
                 for student in students
             ]
 
-            logger.info(
-                "Students retrieved successfully | "
-                f"Total Students: {len(serialized_students)}"
-            )
-
             return APIResponse.success(
                 "Students retrieved successfully.",
                 {
-                    "total_students": len(serialized_students),
-                    "students": serialized_students,
+                    "total_students": len(serialized),
+                    "students": serialized,
                 },
             )
 
-        except Exception as e:
-            logger.exception("Failed to retrieve students.")
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve students."
+            )
 
             return APIResponse.error(
                 "Unable to retrieve students.",
-                str(e),
+                str(exc),
             )
 
-    def get_student_by_id(self, student_id: str):
-        try:
-            student_id = str(student_id).strip().upper()
+    # ============================================================
+    # GET BY ID
+    # ============================================================
 
-            student = self.repository.get_student_by_student_id(student_id)
+    def get_student_by_id(self, student_id: str):
+
+        try:
+
+            student_id = self._clean_upper(student_id)
+
+            if not student_id:
+                return APIResponse.error(
+                    "Student ID is required."
+                )
+
+            student = (
+                self.repository
+                .get_student_by_student_id(student_id)
+            )
 
             if not student:
+
                 logger.warning(
-                    "Student not found | "
-                    f"Student ID: {student_id}"
+                    f"Student not found | Student ID: {student_id}"
                 )
 
                 return APIResponse.error(
                     "Student not found."
                 )
-
-            serialized_student = self._serialize_student(student)
-
-            logger.info(
-                "Student retrieved successfully | "
-                f"Student ID: {student_id}"
-            )
 
             return APIResponse.success(
                 "Student retrieved successfully.",
-                serialized_student,
+                self._serialize_student(student),
             )
 
-        except Exception as e:
-            logger.exception("Failed to retrieve student.")
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve student."
+            )
 
             return APIResponse.error(
                 "Unable to retrieve student.",
-                str(e),
+                str(exc),
             )
 
-    def update_student(self, student_id: str, student_data: dict):
-        try:
-            student_id = str(student_id).strip().upper()
-            student = self.repository.get_student_by_student_id(student_id)
+    # ============================================================
+    # UPDATE
+    # ============================================================
 
-            if not student:
-                logger.warning(
-                    "Student not found for update | "
-                    f"Student ID: {student_id}"
+    def update_student(
+        self,
+        student_id: str,
+        student_data: dict,
+    ):
+
+        try:
+
+            student_id = self._clean_upper(student_id)
+
+            if not student_id:
+                return APIResponse.error(
+                    "Student ID is required."
                 )
+
+            existing_student = (
+                self.repository
+                .get_student_by_student_id(student_id)
+            )
+
+            if not existing_student:
 
                 return APIResponse.error(
                     "Student not found."
+                )
+
+            if not isinstance(student_data, dict):
+
+                return APIResponse.error(
+                    "Invalid update payload."
                 )
 
             update_data = {}
 
+            # ----------------------------------------------------
+            # PERSONAL
+            # ----------------------------------------------------
+
             if "personal" in student_data:
-                personal = student_data["personal"] or {}
 
-                if "name" in personal:
-                    update_data["name"] = personal["name"]
+                personal = student_data.get("personal") or {}
 
-                if "cnic" in personal:
-                    update_data["cnic"] = personal["cnic"]
+                if not isinstance(personal, dict):
+                    return APIResponse.error(
+                        "Personal data must be an object."
+                    )
 
-                if "phone" in personal:
-                    update_data["phone"] = personal["phone"]
+                field_map = {
+                    "name": "name",
+                    "cnic": "cnic",
+                    "phone": "phone",
+                    "email": "email",
+                    "address": "address",
+                    "profile_image": "profile_image",
+                    "cnic_front_image": "cnic_front_image",
+                    "cnic_back_image": "cnic_back_image",
+                }
 
-                if "email" in personal:
-                    update_data["email"] = personal["email"]
+                for source, target in field_map.items():
 
-                if "blood_group" in personal or "bloodGroup" in personal:
+                    if source in personal:
+                        value = personal[source]
+
+                        if source == "email":
+                            value = self._clean_lower(value)
+                        else:
+                            value = self._clean_string(value)
+
+                        update_data[target] = value
+
+                if "blood_group" in personal:
                     update_data["blood_group"] = (
-                        personal.get("blood_group") or personal.get("bloodGroup")
+                        self._clean_upper(
+                            personal["blood_group"]
+                        )
                     )
 
-                if "address" in personal:
-                    update_data["address"] = personal["address"]
-
-                if "profile_image" in personal or "profileImage" in personal:
-                    update_data["profile_image"] = (
-                        personal.get("profile_image") or personal.get("profileImage")
-                    )
-
-                if "cnic_front_image" in personal or "cnicFrontImage" in personal:
-                    update_data["cnic_front_image"] = (
-                        personal.get("cnic_front_image") or personal.get("cnicFrontImage")
-                    )
-
-                if "cnic_back_image" in personal or "cnicBackImage" in personal:
-                    update_data["cnic_back_image"] = (
-                        personal.get("cnic_back_image") or personal.get("cnicBackImage")
-                    )
+            # ----------------------------------------------------
+            # GUARDIAN
+            # ----------------------------------------------------
 
             if "guardian" in student_data:
-                guardian = student_data["guardian"] or {}
 
-                if "guardian_name" in guardian or "name" in guardian:
+                guardian = student_data.get("guardian") or {}
+
+                if not isinstance(guardian, dict):
+                    return APIResponse.error(
+                        "Guardian data must be an object."
+                    )
+
+                guardian_map = {
+                    "guardian_name": "guardian_name",
+                    "guardian_phone": "guardian_phone",
+                    "guardian_cnic": "guardian_cnic",
+                    "relation": "relation",
+                }
+
+                for source, target in guardian_map.items():
+
+                    if source in guardian:
+                        update_data[target] = (
+                            self._clean_string(
+                                guardian[source]
+                            )
+                        )
+
+                if "name" in guardian:
                     update_data["guardian_name"] = (
-                        guardian.get("guardian_name") or guardian.get("name")
+                        self._clean_string(
+                            guardian["name"]
+                        )
                     )
 
-                if "guardian_phone" in guardian or "phone" in guardian:
+                if "phone" in guardian:
                     update_data["guardian_phone"] = (
-                        guardian.get("guardian_phone") or guardian.get("phone")
+                        self._clean_string(
+                            guardian["phone"]
+                        )
                     )
 
-                if "guardian_cnic" in guardian or "cnic" in guardian:
+                if "cnic" in guardian:
                     update_data["guardian_cnic"] = (
-                        guardian.get("guardian_cnic") or guardian.get("cnic")
+                        self._clean_string(
+                            guardian["cnic"]
+                        )
                     )
 
-                if "relation" in guardian:
-                    update_data["relation"] = guardian["relation"]
+            # ----------------------------------------------------
+            # ALLOCATION
+            # ----------------------------------------------------
+
+            allocation_changed = False
+            old_room_id = existing_student.get(
+                "room_firebase_id"
+            )
+
+            new_room_id = old_room_id
 
             if "allocation" in student_data:
-                allocation = student_data["allocation"] or {}
 
-                if "block" in allocation:
-                    update_data["block"] = allocation["block"]
+                allocation = student_data.get("allocation") or {}
 
-                if "room_type" in allocation or "roomType" in allocation:
-                    update_data["room_type"] = (
-                        allocation.get("room_type") or allocation.get("roomType")
+                if not isinstance(allocation, dict):
+                    return APIResponse.error(
+                        "Allocation data must be an object."
                     )
 
-                if "room_number" in allocation or "roomNumber" in allocation:
-                    update_data["room_number"] = (
-                        allocation.get("room_number") or allocation.get("roomNumber")
-                    )
+                allocation_fields = {
+                    "block": "block",
+                    "room_type": "room_type",
+                    "room_number": "room_number",
+                    "room_firebase_id": "room_firebase_id",
+                    "floor": "floor",
+                    "bed_number": "bed_number",
+                    "joining_date": "joining_date",
+                    "remarks": "remarks",
+                    "monthly_fee": "monthly_fee",
+                    "security_deposit": "security_deposit",
+                }
 
-                if "bed_number" in allocation or "bedNumber" in allocation:
-                    update_data["bed_number"] = (
-                        allocation.get("bed_number") or allocation.get("bedNumber")
-                    )
+                for source, target in allocation_fields.items():
 
-                if "room_firebase_id" in allocation or "roomFirebaseId" in allocation:
-                    update_data["room_firebase_id"] = (
-                        allocation.get("room_firebase_id") or allocation.get("roomFirebaseId")
-                    )
+                    alternate = None
+
+                    if source == "room_type":
+                        alternate = "roomType"
+
+                    elif source == "room_number":
+                        alternate = "roomNumber"
+
+                    elif source == "room_firebase_id":
+                        alternate = "roomFirebaseId"
+
+                    elif source == "bed_number":
+                        alternate = "bedNumber"
+
+                    elif source == "joining_date":
+                        alternate = "joiningDate"
+
+                    elif source == "monthly_fee":
+                        alternate = "monthlyFee"
+
+                    elif source == "security_deposit":
+                        alternate = "securityDeposit"
+
+                    if source in allocation:
+
+                        value = allocation[source]
+
+                    elif alternate and alternate in allocation:
+
+                        value = allocation[alternate]
+
+                    else:
+
+                        continue
+
+                    allocation_changed = True
+
+                    if source in {
+                        "block",
+                    }:
+                        value = self._clean_upper(value)
+
+                    elif source in {
+                        "room_number",
+                        "bed_number",
+                    }:
+                        value = self._clean_upper(value)
+
+                    elif source in {
+                        "room_type",
+                        "joining_date",
+                        "remarks",
+                    }:
+                        value = self._clean_string(value)
+
+                    elif source == "room_firebase_id":
+                        value = self._clean_string(value)
+
+                    elif source == "monthly_fee":
+                        value = self._normalize_money(
+                            value,
+                            "Monthly fee",
+                            allow_zero=True,
+                        )
+
+                    elif source == "security_deposit":
+                        value = self._normalize_money(
+                            value,
+                            "Security deposit",
+                            allow_zero=True,
+                        )
+
+                    update_data[target] = value
 
                 if "floor" in allocation:
-                    update_data["floor"] = allocation["floor"]
 
-                if "joining_date" in allocation or "joiningDate" in allocation:
-                    update_data["joining_date"] = (
-                        allocation.get("joining_date") or allocation.get("joiningDate")
-                    )
+                    floor = allocation["floor"]
 
-                if "remarks" in allocation:
-                    update_data["remarks"] = allocation["remarks"]
+                    if floor is not None:
 
-                if "monthly_fee" in allocation or "monthlyFee" in allocation:
-                    update_data["monthly_fee"] = (
-                        allocation.get("monthly_fee") or allocation.get("monthlyFee")
-                    )
+                        try:
+                            floor = int(floor)
+                        except (TypeError, ValueError):
 
-                if "security_deposit" in allocation or "securityDeposit" in allocation:
-                    update_data["security_deposit"] = (
-                        allocation.get("security_deposit") or allocation.get("securityDeposit")
-                    )
+                            return APIResponse.error(
+                                "Floor must be a valid number."
+                            )
+
+                        if floor < 0:
+
+                            return APIResponse.error(
+                                "Floor cannot be negative."
+                            )
+
+                    update_data["floor"] = floor
+
+                new_room_id = update_data.get(
+                    "room_firebase_id",
+                    old_room_id,
+                )
+
+            # ----------------------------------------------------
+            # STATUS
+            # ----------------------------------------------------
 
             if "status" in student_data:
-                update_data["status"] = student_data["status"]
 
-            if (
-                "cnic" in update_data
-                and update_data["cnic"] != student.get("cnic")
-            ):
-                existing_student = self.repository.get_student_by_cnic(
-                    update_data["cnic"]
+                status = self._enum_value(
+                    student_data.get("status")
                 )
 
-                if existing_student:
+                if status not in {
+                    "Active",
+                    "Inactive",
+                }:
+
                     return APIResponse.error(
-                        "Student with this CNIC already exists."
+                        "Invalid student status."
                     )
 
-            if (
-                "phone" in update_data
-                and update_data["phone"] != student.get("phone")
-            ):
-                existing_phone = self.repository.get_student_by_phone(
-                    update_data["phone"]
-                )
+                update_data["status"] = status
 
-                if existing_phone:
-                    return APIResponse.error(
-                        "Phone number already exists."
-                    )
-
-            if (
-                update_data.get("email")
-                and update_data["email"] != student.get("email")
-            ):
-                existing_email = self.repository.get_student_by_email(
-                    update_data["email"]
-                )
-
-                if existing_email:
-                    return APIResponse.error(
-                        "Email already exists."
-                    )
+            # ----------------------------------------------------
+            # VALIDATE UPDATE
+            # ----------------------------------------------------
 
             if not update_data:
+
                 return APIResponse.error(
                     "No data provided for update."
                 )
 
-            updated = self.repository.update_student(student_id, update_data)
+            # Required fields cannot become empty.
+            protected_fields = {
+                "name": "Student name cannot be empty.",
+                "cnic": "CNIC cannot be empty.",
+                "phone": "Phone number cannot be empty.",
+                "address": "Address cannot be empty.",
+                "guardian_name": "Guardian name cannot be empty.",
+                "guardian_phone": "Guardian phone cannot be empty.",
+                "guardian_cnic": "Guardian CNIC cannot be empty.",
+            }
+
+            for field, message in protected_fields.items():
+
+                if field in update_data:
+
+                    if not self._clean_string(
+                        update_data[field]
+                    ):
+
+                        return APIResponse.error(message)
+
+            # ----------------------------------------------------
+            # UNIQUE VALIDATION
+            # ----------------------------------------------------
+
+            self._check_unique_fields(
+                update_data,
+                existing_student,
+            )
+
+            # ----------------------------------------------------
+            # ROOM CHANGE
+            # ----------------------------------------------------
+
+            room_changed = (
+                new_room_id != old_room_id
+            )
+
+            if room_changed:
+
+                if new_room_id:
+
+                    allocation_for_validation = {
+                        "room_firebase_id": new_room_id,
+                        "room_number": update_data.get(
+                            "room_number",
+                            existing_student.get("room_number"),
+                        ),
+                        "floor": update_data.get(
+                            "floor",
+                            existing_student.get("floor"),
+                        ),
+                    }
+
+                    self._validate_room_allocation(
+                        allocation_for_validation
+                    )
+
+                # ------------------------------------------------
+                # CHANGE ROOM
+                # ------------------------------------------------
+
+                if old_room_id and new_room_id:
+
+                    room_response = (
+                        self.room_service
+                        .change_student_room(
+                            old_room_id,
+                            new_room_id,
+                            student_id,
+                        )
+                    )
+
+                    if not room_response.get("success"):
+
+                        return APIResponse.error(
+                            room_response.get(
+                                "message",
+                                "Unable to change student room.",
+                            )
+                        )
+
+                # ------------------------------------------------
+                # ASSIGN NEW ROOM
+                # ------------------------------------------------
+
+                elif new_room_id:
+
+                    room_response = (
+                        self.room_service
+                        .assign_student_to_room(
+                            new_room_id,
+                            student_id,
+                        )
+                    )
+
+                    if not room_response.get("success"):
+
+                        return APIResponse.error(
+                            room_response.get(
+                                "message",
+                                "Unable to assign student to room.",
+                            )
+                        )
+
+                # ------------------------------------------------
+                # REMOVE OLD ROOM
+                # ------------------------------------------------
+
+                elif old_room_id:
+
+                    room_response = (
+                        self.room_service
+                        .remove_student_from_room(
+                            old_room_id,
+                            student_id,
+                        )
+                    )
+
+                    if not room_response.get("success"):
+
+                        logger.error(
+                            "Student room removal failed after "
+                            "student requested room removal | "
+                            f"Student ID: {student_id}"
+                        )
+
+                        return APIResponse.error(
+                            room_response.get(
+                                "message",
+                                "Unable to remove student from room.",
+                            )
+                        )
+
+            # ----------------------------------------------------
+            # UPDATE STUDENT
+            # ----------------------------------------------------
+
+            updated = self.repository.update_student(
+                student_id,
+                update_data,
+            )
 
             if not updated:
+
+                # Rollback room change where possible.
+                if room_changed:
+
+                    try:
+
+                        if old_room_id and new_room_id:
+
+                            self.room_service.change_student_room(
+                                new_room_id,
+                                old_room_id,
+                                student_id,
+                            )
+
+                        elif new_room_id and not old_room_id:
+
+                            self.room_service.remove_student_from_room(
+                                new_room_id,
+                                student_id,
+                            )
+
+                        elif old_room_id and not new_room_id:
+
+                            self.room_service.assign_student_to_room(
+                                old_room_id,
+                                student_id,
+                            )
+
+                    except Exception:
+
+                        logger.exception(
+                            "Room rollback failed after "
+                            "student update failure."
+                        )
+
                 return APIResponse.error(
                     "Student update failed."
                 )
 
-            updated_student = self.repository.get_student_by_student_id(student_id)
+            # ----------------------------------------------------
+            # FETCH UPDATED STUDENT
+            # ----------------------------------------------------
+
+            updated_student = (
+                self.repository
+                .get_student_by_student_id(student_id)
+            )
 
             if not updated_student:
+
                 return APIResponse.error(
                     "Student not found after update."
                 )
-
-            serialized_student = self._serialize_student(updated_student)
 
             logger.info(
                 "Student updated successfully | "
@@ -506,35 +1270,105 @@ class StudentService:
 
             return APIResponse.success(
                 "Student updated successfully.",
-                serialized_student,
+                self._serialize_student(
+                    updated_student
+                ),
             )
 
-        except Exception as e:
-            logger.exception("Failed to update student.")
+        except ValueError as exc:
+
+            logger.warning(
+                f"Student update validation failed | {exc}"
+            )
+
+            return APIResponse.error(str(exc))
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to update student."
+            )
 
             return APIResponse.error(
                 "Unable to update student.",
-                str(e),
+                str(exc),
             )
 
-    def delete_student(self, student_id: str):
-        try:
-            student_id = str(student_id).strip().upper()
+    # ============================================================
+    # DELETE / DISABLE
+    # ============================================================
 
-            if not self.repository.student_exists(student_id):
-                logger.warning(
-                    "Student not found for deletion | "
-                    f"Student ID: {student_id}"
+    def delete_student(self, student_id: str):
+
+        try:
+
+            student_id = self._clean_upper(student_id)
+
+            if not student_id:
+
+                return APIResponse.error(
+                    "Student ID is required."
                 )
+
+            student = (
+                self.repository
+                .get_student_by_student_id(student_id)
+            )
+
+            if not student:
 
                 return APIResponse.error(
                     "Student not found."
                 )
 
-            deleted = self.repository.disable_student(student_id)
+            room_id = student.get(
+                "room_firebase_id"
+            )
+
+            # Remove student from room first.
+            if room_id:
+
+                room_response = (
+                    self.room_service
+                    .remove_student_from_room(
+                        room_id,
+                        student_id,
+                    )
+                )
+
+                if not room_response.get("success"):
+
+                    return APIResponse.error(
+                        room_response.get(
+                            "message",
+                            "Unable to remove student from room.",
+                        )
+                    )
+
+            deleted = (
+                self.repository
+                .disable_student(student_id)
+            )
 
             if not deleted:
-                return APIResponse.error("Student not found.")
+
+                # Try to restore room allocation.
+                if room_id:
+
+                    try:
+                        self.room_service.assign_student_to_room(
+                            room_id,
+                            student_id,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to restore room after "
+                            "student disable failure."
+                        )
+
+                return APIResponse.error(
+                    "Student deletion failed."
+                )
 
             logger.info(
                 "Student disabled successfully | "
@@ -542,29 +1376,45 @@ class StudentService:
             )
 
             return APIResponse.success(
-                "Student disabled successfully."
+                "Student disabled successfully.",
+                {
+                    "student_id": student_id,
+                },
             )
 
-        except Exception as e:
-            logger.exception("Failed to disable student.")
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to disable student."
+            )
 
             return APIResponse.error(
                 "Unable to disable student.",
-                str(e),
+                str(exc),
             )
 
+    # ============================================================
+    # SEARCH
+    # ============================================================
+
     def search_students(self, keyword: str):
+
         try:
-            keyword = str(keyword).strip()
+
+            keyword = self._clean_string(keyword)
 
             if not keyword:
+
                 return APIResponse.error(
                     "Search keyword is required."
                 )
 
-            students = self.repository.search_students(keyword)
+            students = (
+                self.repository
+                .search_students(keyword)
+            )
 
-            serialized_students = [
+            serialized = [
                 self._serialize_student(student)
                 for student in students
             ]
@@ -572,32 +1422,38 @@ class StudentService:
             logger.info(
                 "Student search completed | "
                 f"Keyword: {keyword} | "
-                f"Results: {len(serialized_students)}"
+                f"Results: {len(serialized)}"
             )
 
             return APIResponse.success(
                 "Students retrieved successfully.",
                 {
-                    "total_students": len(serialized_students),
-                    "students": serialized_students,
+                    "total_students": len(serialized),
+                    "students": serialized,
                 },
             )
 
-        except Exception as e:
-            logger.exception("Failed to search students.")
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to search students."
+            )
 
             return APIResponse.error(
                 "Unable to search students.",
-                str(e),
+                str(exc),
             )
 
-    def count_students(self):
-        try:
-            total_students = self.repository.count_students()
+    # ============================================================
+    # COUNT
+    # ============================================================
 
-            logger.info(
-                "Student count retrieved successfully | "
-                f"Total Students: {total_students}"
+    def count_students(self):
+
+        try:
+
+            total_students = (
+                self.repository.count_students()
             )
 
             return APIResponse.success(
@@ -607,10 +1463,207 @@ class StudentService:
                 },
             )
 
-        except Exception as e:
-            logger.exception("Failed to count students.")
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to count students."
+            )
 
             return APIResponse.error(
                 "Unable to count students.",
-                str(e),
+                str(exc),
+            )
+
+    # ============================================================
+    # ACTIVE STUDENTS
+    # ============================================================
+
+    def get_active_students(self):
+
+        try:
+
+            students = (
+                self.repository
+                .get_active_students()
+            )
+
+            serialized = [
+                self._serialize_student(student)
+                for student in students
+            ]
+
+            return APIResponse.success(
+                "Active students retrieved successfully.",
+                {
+                    "total_students": len(serialized),
+                    "students": serialized,
+                },
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve active students."
+            )
+
+            return APIResponse.error(
+                "Unable to retrieve active students.",
+                str(exc),
+            )
+
+    # ============================================================
+    # INACTIVE STUDENTS
+    # ============================================================
+
+    def get_inactive_students(self):
+
+        try:
+
+            students = (
+                self.repository
+                .get_inactive_students()
+            )
+
+            serialized = [
+                self._serialize_student(student)
+                for student in students
+            ]
+
+            return APIResponse.success(
+                "Inactive students retrieved successfully.",
+                {
+                    "total_students": len(serialized),
+                    "students": serialized,
+                },
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve inactive students."
+            )
+
+            return APIResponse.error(
+                "Unable to retrieve inactive students.",
+                str(exc),
+            )
+
+    # ============================================================
+    # STUDENTS BY ROOM
+    # ============================================================
+
+    def get_students_by_room(
+        self,
+        room_firebase_id: str,
+    ):
+
+        try:
+
+            room_firebase_id = (
+                self._clean_string(
+                    room_firebase_id
+                )
+            )
+
+            if not room_firebase_id:
+
+                return APIResponse.error(
+                    "Room ID is required."
+                )
+
+            students = (
+                self.repository
+                .get_students_by_room(
+                    room_firebase_id
+                )
+            )
+
+            serialized = [
+                self._serialize_student(student)
+                for student in students
+            ]
+
+            return APIResponse.success(
+                "Room students retrieved successfully.",
+                {
+                    "total_students": len(serialized),
+                    "students": serialized,
+                },
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve students by room."
+            )
+
+            return APIResponse.error(
+                "Unable to retrieve students by room.",
+                str(exc),
+            )
+
+    # ============================================================
+    # STUDENTS WITHOUT ROOM
+    # ============================================================
+
+    def get_students_without_room(self):
+
+        try:
+
+            students = (
+                self.repository
+                .get_students_without_room()
+            )
+
+            serialized = [
+                self._serialize_student(student)
+                for student in students
+            ]
+
+            return APIResponse.success(
+                "Students without room retrieved successfully.",
+                {
+                    "total_students": len(serialized),
+                    "students": serialized,
+                },
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve students without room."
+            )
+
+            return APIResponse.error(
+                "Unable to retrieve students without room.",
+                str(exc),
+            )
+
+    # ============================================================
+    # STATISTICS
+    # ============================================================
+
+    def get_student_statistics(self):
+
+        try:
+
+            statistics = (
+                self.repository
+                .get_student_statistics()
+            )
+
+            return APIResponse.success(
+                "Student statistics retrieved successfully.",
+                statistics,
+            )
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to retrieve student statistics."
+            )
+
+            return APIResponse.error(
+                "Unable to retrieve student statistics.",
+                str(exc),
             )
